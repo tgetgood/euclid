@@ -1,6 +1,6 @@
 # Euclid's Composite
 
-Can Euclidean geometry be a fun puzzle game? And I mean actually fun for a braod
+Can Euclidean geometry be a fun puzzle game? And I mean actually fun for a broad
 spectrum of people. Let's find out.
 
 ### Usage
