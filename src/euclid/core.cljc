@@ -56,11 +56,9 @@
 
 (defn ^:export init []
   (spray/initialise! {:host host
-                      :root ex
+                      :root game/l1
                       :subscriptions game/subscriptions
                       :event-handlers event-map}))
 
 (defn on-reload []
   (init))
-
-#?(:clj (core/draw! ex host))

@@ -113,11 +113,24 @@
              (xf acc {:down start :up n})
              acc)))))))
 
-(defn clicked-on?
-  "Returns true if the shape with tag contains location."
-  [tag location]
-  (when-let [shape (spray/find-by-tag tag)]
-    (geo/contains? shape location)))
+(defn emit [x])
+
+(def click-stateful
+  (let [state (volatile! nil)]
+    (fn [input]
+      (if (:down? input)
+        (vreset! state input)
+        (when-let [down @state]
+          (vreset! state nil)
+          (emit {:down down :up input}))))))
+
+(spray/defsig click-tx {}
+  (fn [{:keys [down]} event]
+    (if (:down? event)
+      {:state {:down event}}
+      (when down
+        {:state {}
+         :emit  {:down down :up event}}))))
 
 (defn selection-at [click]
   (let [loc (:location click)]
@@ -170,31 +183,50 @@
   ([a _] (inc a)))
 
 (spray/defsubs subscriptions <<
-  {:mouse-events    (:mouse-events (<< :db))
+  {:mouse-events (:mouse-events (<< :db))
 
-   :clicks          (eduction (comp click-tx
-                                    (filter valid-click?)
-                                    (map unify-click))
-                              (<< :mouse-events))
+   :clicks       (eduction (comp click-tx
+                                 (filter valid-click?)
+                                 (map unify-click))
+                           (<< :mouse-events))
 
-   :last-click      (reduce last-rx (<< :clicks))
+   :last-click   (reduce last-rx (<< :clicks))
 
 
-   :game-draw     (selection-at (<< :last-click))
+   :game-draw    (selection-at (<< :last-click))
 
-   :draw-modes    (map (fn [x] {:mode (selection-at x) :time (:time x)})
-                       (<< :clicks))
+   :draw-modes   (map (fn [x] {:mode (selection-at x) :time (:time x)})
+                      (<< :clicks))
 
-   :drawings      (eduction drawings-tx (sort-by :time (concat (<< :draw-modes)
-                                                               (<< :drags))))
+   :drawings     (eduction drawings-tx (sort-by :time (concat (<< :draw-modes)
+                                                              (<< :drags))))
 
-   :points        (:points (<< :db))
+   :points       (:points (<< :db))
 
-   :drags           (eduction drag-tx (reverse (<< :mouse-event)))})
+   :drags        (eduction drag-tx (reverse (<< :mouse-event)))})
 
-#_(defmethod view ::geo-game []
+(defn signal [& args]
+   :what-now?)
 
-  [(u/translate control-panel [30 900])
+(spray/defsubs ideal <<
+  {:mouse-events '(special event stream)
+
+   :clicks       (signal (comp click-tx
+                               (filter valid-click?)
+                               (map unify-click))
+                         (<< :mouse-events))
+
+   ;; :last-click is just the current value of :clicks
+
+   :game-draw    (selection-at (<< :clicks))
+
+   :drags        (signal drag-tx (<< :mouse-events))
+
+   :drawings     (signal drawings-tx (<< :drags) (<< :game-draw))
+   })
+
+(def l1
+  [(u/translate control-panel [30 700])
    (u/translate problem-1 [100 300])
    user-drawing
    draw-points])

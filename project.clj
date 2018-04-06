@@ -10,7 +10,7 @@
                  [org.clojure/clojure "1.9.0"]
                  [org.clojure/clojurescript "1.9.946"]]
 
-  :plugins [[lein-figwheel "0.5.15"]
+  :plugins [[lein-figwheel "0.5.14"]
             [lein-cljsbuild "1.1.7" :exclusions [org.clojure/clojure]]]
 
   :source-paths ["src" "dev" "../ubik/src"]
@@ -45,7 +45,8 @@
   :profiles
   {:dev  {:dependencies  [[binaryage/devtools "0.9.9"]
                           [com.cemerick/piggieback "0.2.2"]
-                          [figwheel-sidecar "0.5.15"]
+                          [figwheel-sidecar "0.5.14"
+                           :exclusions [org.clojure/core.async]]
                           [org.clojure/core.async "0.3.465"]
                           [org.clojure/spec.alpha "0.1.134"]
                           [org.clojure/test.check "0.9.0"]
