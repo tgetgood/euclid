@@ -113,24 +113,24 @@
              (xf acc {:down start :up n})
              acc)))))))
 
+(spray/stx {}
+    (fn [{:keys [down]} event]
+      (if (:down? event)
+        {:state {:down event}}
+        (when down
+          {:state {}
+           :emit  {:down down :up event}}))))
+
 (defn emit [x])
 
-(def click-stateful
+(defn click-stateful [xf]
   (let [state (volatile! nil)]
     (fn [input]
       (if (:down? input)
         (vreset! state input)
         (when-let [down @state]
           (vreset! state nil)
-          (emit {:down down :up input}))))))
-
-(spray/defsig click-tx {}
-  (fn [{:keys [down]} event]
-    (if (:down? event)
-      {:state {:down event}}
-      (when down
-        {:state {}
-         :emit  {:down down :up event}}))))
+          (xf {:down down :up input}))))))
 
 (defn selection-at [click]
   (let [loc (:location click)]
@@ -208,8 +208,49 @@
 (defn signal [& args]
    :what-now?)
 
+(def click-tx2
+  (spray/stx {}
+    (fn [{:keys [down]} event]
+      (if (:down? event)
+        {:state {:down event}}
+        (when down
+          {:state {}
+           :emit  {:down down :up event}})))))
+
+(def clicks
+  (comp click-tx2
+        (filter valid-click?)
+        (map unify-click)))
+
+(defn last-click [] @clicks)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; What does a signal need to do?
+;;
+;; You need to be able to deref the current value.
+;; You need to be able to follow it so that you can update when it does.
+;; It needs to follow something else and update when it does.
+;;
+;; There will at some point be a signal which simply emits messages. A whitehole
+;; so to speak. This would be something like game time ticks, or the mouse event
+;; stream from the browser.
+;;
+;; We also want to be able to interleave existing signals to combine them.
+;;
+;; Basically I'm talking about event streams and transforms on them, but only
+;; the last value ever sees the light of day. Does that make any sense?
+;;
+;; Okay, so the first type is like a transducer. It's defined (conceptually) by
+;; a transducer on an input.
+;; But what does it mean to transduce? No the real question is what does it mean
+;; to reduce over signals? It means nothing. Reduction isn't well defined
+;; because reduction is global in time. It requires all values of a thing over
+;; time, does it?
+
+(def combine)
+
 (spray/defsubs ideal <<
-  {:mouse-events '(special event stream)
+  {:mouse-events (combine (<< :mouse-down) (<< :mouse-up))
 
    :clicks       (signal (comp click-tx
                                (filter valid-click?)
