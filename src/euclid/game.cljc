@@ -205,9 +205,6 @@
 
    :drags        (eduction drag-tx (reverse (<< :mouse-event)))})
 
-(defn signal [& args]
-   :what-now?)
-
 (def click-tx2
   (spray/stx {}
     (fn [{:keys [down]} event]
@@ -215,7 +212,7 @@
         {:state {:down event}}
         (when down
           {:state {}
-           :emit  {:down down :up event}})))))
+           :emit-n  [{}  {:down down :up event} 4]})))))
 
 (def clicks
   (comp click-tx2
