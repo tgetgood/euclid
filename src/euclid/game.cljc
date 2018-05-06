@@ -113,7 +113,7 @@
              (xf acc {:down start :up n})
              acc)))))))
 
-(spray/stx {}
+#_(spray/stx {}
     (fn [{:keys [down]} event]
       (if (:down? event)
         {:state {:down event}}
@@ -206,7 +206,7 @@
    :drags        (eduction drag-tx (reverse (<< :mouse-event)))})
 
 (def click-tx2
-  (spray/stx {}
+  (spray/simple-tx {}
     (fn [{:keys [down]} event]
       (if (:down? event)
         {:state {:down event}}
@@ -245,6 +245,8 @@
 ;; time, does it?
 
 (def combine)
+
+(def signal)
 
 (spray/defsubs ideal <<
   {:mouse-events (combine (<< :mouse-down) (<< :mouse-up))
