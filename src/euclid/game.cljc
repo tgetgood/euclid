@@ -2,6 +2,7 @@
   (:require [ubik.core :as u]
             [ubik.geometry :as geo]
             [ubik.interactive.core :as spray :include-macros true]
+            [ubik.interactive.signal :refer [combine signal]]
             [ubik.math :as math]))
 
 (defn text [t & [c]]
@@ -183,17 +184,14 @@
   ([a _] (inc a)))
 
 (spray/defsubs subscriptions <<
-  {:mouse-events (:mouse-events (<< :db))
+  {:mouse-events (signal (map :mouse-events) (<< :db))
 
-   :clicks       (eduction (comp click-tx
+   :clicks       (signal (comp click-tx
                                  (filter valid-click?)
                                  (map unify-click))
                            (<< :mouse-events))
 
-   :last-click   (reduce last-rx (<< :clicks))
-
-
-   :game-draw    (selection-at (<< :last-click))
+   :game-draw    (signal (map selection-at) (<< :clicks))
 
    :draw-modes   (map (fn [x] {:mode (selection-at x) :time (:time x)})
                       (<< :clicks))
@@ -244,10 +242,6 @@
 ;; because reduction is global in time. It requires all values of a thing over
 ;; time, does it?
 
-(def combine)
-
-(def signal)
-
 (spray/defsubs ideal <<
   {:mouse-events (combine (<< :mouse-down) (<< :mouse-up))
 
@@ -258,7 +252,7 @@
 
    ;; :last-click is just the current value of :clicks
 
-   :game-draw    (selection-at (<< :clicks))
+   :game-draw    (signal (map selection-at) (<< :clicks))
 
    :drags        (signal drag-tx (<< :mouse-events))
 
