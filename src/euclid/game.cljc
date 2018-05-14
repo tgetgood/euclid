@@ -176,20 +176,6 @@
            acc
            acc))))))
 
-(def click-tx2
-  (spray/simple-tx {}
-    (fn [{:keys [down]} event]
-      (if (:down? event)
-        {:state {:down event}}
-        (when down
-          {:state {}
-           :emit-n  [{}  {:down down :up event} 4]})))))
-
-(def clicks
-  (comp click-tx2
-        (filter valid-click?)
-        (map unify-click)))
-
 (def l1
   [(u/translate control-panel [30 700])
    (u/translate problem-1 [100 300])
