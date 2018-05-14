@@ -1,9 +1,12 @@
 (ns euclid.game
   (:require [ubik.core :as u]
             [ubik.geometry :as geo]
+            [ubik.hosts :as hosts]
             [ubik.interactive.core :as spray :include-macros true]
-            [ubik.interactive.signal :refer [combine signal]]
             [ubik.math :as math]))
+
+(defonce host (hosts/default-host {}))
+(defonce r (reduce conj (:events host)))
 
 (defn text [t & [c]]
   (cond-> (u/scale (assoc u/text :text t) 2)
@@ -43,7 +46,7 @@
          :style {:fill :green :opacity 0.3}))
 
 (def control-panel
-  (spray/sub-form <<
+  #_(spray/sub-form <<
    [circle-button
     (u/translate rule-button [0 100])
     (condp = (<< :game-draw)
@@ -52,11 +55,11 @@
       [])]))
 
 (def draw-points
-  (spray/sub-form <<
+  #_(spray/sub-form <<
    (map #(assoc point :centre %) (<< :points))))
 
 (def user-drawing
-  (spray/sub-form <<
+  #_(spray/sub-form <<
     (into [] (<< :drawings))))
 
 (def problem-1
@@ -75,7 +78,7 @@
 (defn clicked-on?
   "Returns true if the shape with tag contains location."
   [tag location]
-  (when-let [shape (spray/find-by-tag tag)]
+  (when-let [shape [] #_(spray/find-by-tag tag)]
     (geo/contains? shape location)))
 
 (defn valid-click?
@@ -173,36 +176,6 @@
            acc
            acc))))))
 
-(defn last-rx
-  ([] nil)
-  ([a] a)
-  ([_ x] x))
-
-(defn count-rx
-  ([] 0)
-  ([a] a)
-  ([a _] (inc a)))
-
-(spray/defsubs subscriptions <<
-  {:mouse-events (signal (map :mouse-events) (<< :db))
-
-   :clicks       (signal (comp click-tx
-                                 (filter valid-click?)
-                                 (map unify-click))
-                           (<< :mouse-events))
-
-   :game-draw    (signal (map selection-at) (<< :clicks))
-
-   :draw-modes   (map (fn [x] {:mode (selection-at x) :time (:time x)})
-                      (<< :clicks))
-
-   :drawings     (eduction drawings-tx (sort-by :time (concat (<< :draw-modes)
-                                                              (<< :drags))))
-
-   :points       (:points (<< :db))
-
-   :drags        (eduction drag-tx (reverse (<< :mouse-event)))})
-
 (def click-tx2
   (spray/simple-tx {}
     (fn [{:keys [down]} event]
@@ -217,50 +190,13 @@
         (filter valid-click?)
         (map unify-click)))
 
-(defn last-click [] @clicks)
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; What does a signal need to do?
-;;
-;; You need to be able to deref the current value.
-;; You need to be able to follow it so that you can update when it does.
-;; It needs to follow something else and update when it does.
-;;
-;; There will at some point be a signal which simply emits messages. A whitehole
-;; so to speak. This would be something like game time ticks, or the mouse event
-;; stream from the browser.
-;;
-;; We also want to be able to interleave existing signals to combine them.
-;;
-;; Basically I'm talking about event streams and transforms on them, but only
-;; the last value ever sees the light of day. Does that make any sense?
-;;
-;; Okay, so the first type is like a transducer. It's defined (conceptually) by
-;; a transducer on an input.
-;; But what does it mean to transduce? No the real question is what does it mean
-;; to reduce over signals? It means nothing. Reduction isn't well defined
-;; because reduction is global in time. It requires all values of a thing over
-;; time, does it?
-
-(spray/defsubs ideal <<
-  {:mouse-events (combine (<< :mouse-down) (<< :mouse-up))
-
-   :clicks       (signal (comp click-tx
-                               (filter valid-click?)
-                               (map unify-click))
-                         (<< :mouse-events))
-
-   ;; :last-click is just the current value of :clicks
-
-   :game-draw    (signal (map selection-at) (<< :clicks))
-
-   :drags        (signal drag-tx (<< :mouse-events))
-
-   :drawings     (signal drawings-tx (<< :drags) (<< :game-draw))
-   })
-
 (def l1
   [(u/translate control-panel [30 700])
    (u/translate problem-1 [100 300])
    user-drawing
    draw-points])
+
+(defn init []
+  (spray/initialise!
+   {:host host
+    :root l1}))

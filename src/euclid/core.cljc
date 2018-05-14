@@ -55,10 +55,9 @@
                                          :down?    false}))})})
 
 (defn ^:export init []
-  (spray/initialise! {:host host
-                      :root game/l1
-                      :subscriptions game/subscriptions
-                      :event-handlers event-map}))
+  (game/init)
+  #_(spray/initialise! {:host host
+                      :root game/l1}))
 
 (defn on-reload []
   (init))
