@@ -3,10 +3,16 @@
             [ubik.geometry :as geo]
             [ubik.hosts :as hosts]
             [ubik.interactive.core :as spray :include-macros true]
+            [ubik.interactive.events :as events]
+            [ubik.interactive.signal :refer [signal]]
             [ubik.math :as math]))
 
 (defonce host (hosts/default-host {}))
-(defonce r (reduce conj (:events host)))
+
+(def events (events/event-signal host))
+(def r (reduce conj events))
+
+(def ups (signal (filter #(= :left-mouse-up (:type %))) events))
 
 (defn text [t & [c]]
   (cond-> (u/scale (assoc u/text :text t) 2)

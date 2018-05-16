@@ -1,7 +1,6 @@
 (ns euclid.core
   (:require [euclid.game :as game]
             [ubik.core :as core]
-            [ubik.hosts :as hosts]
             [ubik.interactive.core :as spray]))
 
 #?(:cljs (enable-console-print!))
@@ -37,22 +36,6 @@
 
    (core/scale core/circle [4000 500])])
 
-(defonce host (hosts/default-host {}))
-
-(def event-map
-  {:left-mouse-down (fn [{:keys [time location]}]
-                      {:swap! (fn [db]
-                                (update db :mouse-events conj
-                                        {:time     time
-                                         :location location
-                                         :down?    true}))})
-
-   :left-mouse-up   (fn [{:keys [time location]}]
-                      {:swap! (fn [db]
-                                (update db :mouse-events conj
-                                        {:time     time
-                                         :location location
-                                         :down?    false}))})})
 
 (defn ^:export init []
   (game/init)
