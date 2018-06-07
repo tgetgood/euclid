@@ -4,15 +4,73 @@
             [ubik.hosts :as hosts]
             [ubik.interactive.core :as spray :include-macros true]
             [ubik.interactive.events :as events]
-            [ubik.interactive.signal :refer [signal]]
+            [ubik.interactive.signal :as signal :refer [signal]]
             [ubik.math :as math]))
 
 (defonce host (hosts/default-host {}))
 
 (def events (events/event-signal host))
-(def r (reduce conj events))
 
-(def ups (signal (filter #(= :left-mouse-up (:type %))) events))
+(defn interleave [& sigs]
+  sigs)
+
+(defn tx [xform & sigs]
+  (transduce xform signal/last-rf (interleave sigs)))
+
+
+
+(defn transducer [m]
+  m)
+
+(def up (tx (filter #(= :left-mouse-up (:type %))) events))
+(def down (tx (filter #(= :left-mouse-down (:type %))) events))
+(def move (tx (filter #(= :mouse-move (:type %))) events))
+
+(def ctx2
+  "Demo signal combinator fn. Each signal runs in a single thread. Communication
+  between threads is accomplished via messages emitted by signals."
+  (transducer
+   {:init-state {:down? nil}
+    :finalise (fn [state] nil)
+    :inputs     {down (fn [_ ev]
+                        {:state {:down? ev}
+                         :emit  nil})
+                 up   (fn [{:keys [down?]} ev]
+                        (when down?
+                          {:state nil
+                           :emit  [down? ev]}))}}))
+(def drag-state
+  (transducer
+   {:init-state {:start nil
+                 :current nil}
+    :inputs {down (fn [_ ev]
+                    {:state {:start ev}})
+             move (fn [state ev]
+                    (when (:start state)
+                      {:emit (assoc state :current ev)}))
+             up (fn [state ev]
+                  (when (:start state)
+                    {:emit (assoc state :end ev)
+                     :state {}}))}}))
+
+(def clicks (tx ctx2 up down))
+(def drag (tx drag-state up down move))
+(def drags (transduce (filter :end) conj drag))
+
+(declare world)
+
+(def draw-state (tx (map thing-clicked) world clicks))
+
+(def shapes (signal (signal shapes-tx drags )))
+
+(defn signal-shape [x])
+
+(def hud [])
+
+(def world
+  (signal-shape
+   [hud
+    @shapes]))
 
 (defn text [t & [c]]
   (cond-> (u/scale (assoc u/text :text t) 2)
