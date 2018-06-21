@@ -246,7 +246,31 @@
    user-drawing
    draw-points])
 
+(defn mode-clicked [world click]
+  ::circle)
+
+(def handlers
+  [{:key ::state
+    :stream-keys #{::clicks}
+    :rf (fn [db click]
+          (assoc db ::state (mode-clicked l1 click)))}
+   {:key ::drags
+    :stream-keys #{:mouse-down :mouse-up :mouse-move}
+    :xform drag-tx}
+   {:key ::clicks
+    :stream-keys #{:mouse-down :mouse-up}
+    :xform (comp click-tx (filter valid-click?) (map unify-click))}
+   {:key ::shapes
+    :stream-keys #{::drags}
+    :rf (fn [db drag]
+          (if-let [t (::state db)]
+            (update db ::shapes conj (build-shape t drag))
+            db))}])
+
 (defn init []
   (spray/initialise!
    {:host host
+    :init-db {}
+    :handlers handlers
+    :subs {}
     :root l1}))
