@@ -1,7 +1,6 @@
 (ns euclid.core
   (:require [euclid.game :as game]
-            [ubik.core :as core]
-            [ubik.interactive.core :as spray]))
+            [ubik.core :as core]))
 
 #?(:cljs (enable-console-print!))
 
