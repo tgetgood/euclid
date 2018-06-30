@@ -8,6 +8,7 @@
 
   :dependencies [#_[macroexpanse/ubik "0.4.0"]
                  [org.clojure/clojure "1.9.0"]
+                 [org.clojure/core.async "0.3.465"]
                  [org.clojure/clojurescript "1.9.946"]]
 
   :plugins [[lein-figwheel "0.5.16"]
