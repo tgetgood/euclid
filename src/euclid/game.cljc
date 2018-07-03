@@ -96,17 +96,13 @@
               @shapes
               (map cp @control)]})
 
-(spray/defsub test
-  (:a (:b @spray/db)))
 
-;;;;; Init
 
 (defn init []
   (spray/initialise!
    {:host host
     :init-db {:control-points [[250 300] [500 300]]
-              :shapes [(u/line [250 300] [500 300])]}
+              :shapes [(assoc u/line :from [250 300] :to [500 300])]}
     :handlers handlers/handlers
     :effects {}
-    :subs subs
-    :root ::world}))
+    :root world}))
