@@ -88,15 +88,18 @@
          :radius 10
          :centre centre))
 
-(spray/defsubs
-  {shapes  (:shapes @spray/db)
-   control (:control-points @spray/db)
-   world   [circle-button
-              (u/translate rule-button [0 100])
-              @shapes
-              (map cp @control)]})
+(spray/defsub shapes
+  (:shapes @spray/db))
 
+(spray/defsub control
+  (:control-points @spray/db))
 
+(spray/defsub world
+  [(u/translate [circle-button
+                 (u/translate rule-button [0 100])]
+                [0 700])
+   @shapes
+   (map cp @control)])
 
 (defn init []
   (spray/initialise!
