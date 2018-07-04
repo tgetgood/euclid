@@ -1,5 +1,6 @@
 (ns euclid.handlers
   (:require [ubik.geometry :as geo]
+            [ubik.interactive.core :as spray]
             [ubik.math :as math]))
 
 ;;;;; Handlers (transducers)
@@ -95,6 +96,21 @@
 (defn handler [event-types xform rf])
 
 (defn subscription [inputs reaction-fn])
+
+(defn emit [db & events]
+  )
+
+(defn temp-key [name]
+  [::temp-state name])
+
+(def click-path (temp-key ::clicks))
+(spray/defhandler click-detector ::potential-clicks
+  [db ev]
+  {:mouse-down (assoc-in db click-path ev)
+   :mouse-up   (do
+                 (when-let [down (get-in db click-path)]
+                   (emit {:down down :up ev}))
+                 (assoc-in db click-path nil))})
 
 (def handlers
   [{:key ::clicks
