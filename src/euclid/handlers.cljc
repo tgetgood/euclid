@@ -36,7 +36,7 @@
       ([] (xf))
       ([acc] (xf acc))
       ([acc n]
-       (if (:down? n)
+       (if (= :mouse-down (:type n))
          (do
            (reset! state :down)
            (reset! down n)
@@ -89,20 +89,25 @@
 
 (def click-path (spray/temp-key ::clicks))
 
-#_(spray/defhandler click-detector ::potential-clicks
+(spray/defhandler click-detector ::potential-clicks
   [db ev]
   {:mouse-down (assoc-in db click-path ev)
-   :mouse-up   (let [down (get-in db click-path)
+   :mouse-up   (let [down    (get-in db click-path)
                      next-db (assoc-in db click-path nil)]
                  (if down
                    (spray/emit next-db {:down down :up ev})
                    next-db))})
 
 (def click-processor
-  #_(spray/handler ::potential-clicks
-           (comp (filter valid-click?) (map unify-click))
-           ::click))
+  (spray/handler ::potential-clicks
+                 (comp (filter valid-click?) (map unify-click))
+                 ::click))
+
+(def click-registrar
+  (spray/handler ::click
+                 (fn [db ev]
+                   (update db :control-points conj (:location ev)))))
 
 (def handlers
-  [#_click-detector
+  [click-detector
    click-processor])
