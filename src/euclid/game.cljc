@@ -9,6 +9,15 @@
 
 ;;;;; Subs
 
+(spray/defsub shapes
+  (:shapes @spray/db))
+
+(spray/defsub control
+  (:control-points @spray/db))
+
+(spray/defsub draw-mode
+  (:draw-mode @spray/db))
+
 ;;;;; UI
 
 (def hud [])
@@ -18,9 +27,11 @@
     c (u/translate c)))
 
 (def point
-  (assoc u/circle :radius 5 :style {:fill :#fdd017
-                                    :opacity 0.8
-                                    :stroke :none}))
+  (assoc u/circle
+         :radius 10
+         :style {:fill    :#fdd017
+                 :opacity 0.5
+                 :stroke  :none}))
 
 (def button-bg
   (-> u/rectangle
@@ -43,29 +54,20 @@
        (u/translate [10 9])
        (u/rotate [10 10] 45)
        (u/tag ::rule-button))
-   (assoc point :centre [10 10])
-   (assoc point :centre [90 90])])
+   (assoc point :centre [10 10] :radius 5)
+   (assoc point :centre [90 90] :radius 5)])
 
 (def selected
   (assoc u/rectangle :width 100 :height 100
          :style {:fill :green :opacity 0.3}))
 
-(def control-panel
-  #_(spray/sub-form <<
-   [circle-button
-    (u/translate rule-button [0 100])
-    (condp = (<< :game-draw)
-      :circle selected
-      :line (assoc selected :corner [0 100])
-      [])]))
-
-(def draw-points
-  #_(spray/sub-form <<
-   (map #(assoc point :centre %) (<< :points))))
-
-(def user-drawing
-  #_(spray/sub-form <<
-    (into [] (<< :drawings))))
+(spray/defsub control-panel
+  [circle-button
+   (u/translate rule-button [0 100])
+   (condp = @draw-mode
+     :circle selected
+     :line (assoc selected :corner [0 100])
+     [])])
 
 (def problem-1
   [(text
@@ -75,37 +77,22 @@
    (u/with-style {:stroke :magenta}
      (assoc u/line :from [150 0] :to [400 0]))])
 
-(def l1
-  [(u/translate control-panel [30 700])
-   (u/translate problem-1 [100 300])
-   user-drawing
-   draw-points])
-
-(defn cp [centre]
-  (assoc u/circle
-         :style {:opacity 0.5
-                 :fill :yellow}
-         :radius 10
-         :centre centre))
-
-(spray/defsub shapes
-  (:shapes @spray/db))
-
-(spray/defsub control
-  (:control-points @spray/db))
-
 (spray/defsub world
-  [(u/translate [circle-button
-                 (u/translate rule-button [0 100])]
+  [(u/translate (u/translate @control-panel [0 100])
                 [0 500])
    @shapes
-   (map cp @control)])
+   (map #(assoc point :centre %) @control)])
 
 (defn init []
   (spray/initialise!
    {:host host
     :init-db {:control-points [[250 300] [500 300]]
-              :shapes [(assoc u/line :from [250 300] :to [500 300])]}
+              :shapes [(assoc u/line :from [250 300] :to [500 300])]
+              :draw-mode :line}
     :handlers handlers/handlers
     :effects {}
     :root world}))
+
+(defn reset []
+  (reset! ubik.interactive.db/app-db :ubik.interactive.db/uninitialised)
+  (init))

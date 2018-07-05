@@ -89,17 +89,17 @@
 
 (def click-path (spray/temp-key ::clicks))
 
-(spray/defhandler click-detector ::potential-clicks
+(spray/defhandler click-detector ::potential-click
   [db ev]
-  {:mouse-down (assoc-in db click-path ev)
-   :mouse-up   (let [down    (get-in db click-path)
-                     next-db (assoc-in db click-path nil)]
-                 (if down
-                   (spray/emit next-db {:down down :up ev})
-                   next-db))})
+  {:left-mouse-down (assoc-in db click-path ev)
+   :left-mouse-up   (let [down    (get-in db click-path)
+                          next-db (assoc-in db click-path nil)]
+                      (if down
+                        (spray/emit next-db {:down down :up ev})
+                        next-db))})
 
 (def click-processor
-  (spray/handler ::potential-clicks
+  (spray/handler ::potential-click
                  (comp (filter valid-click?) (map unify-click))
                  ::click))
 
@@ -110,4 +110,5 @@
 
 (def handlers
   [click-detector
-   click-processor])
+   click-processor
+   click-registrar])
