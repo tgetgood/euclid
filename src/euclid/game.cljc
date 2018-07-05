@@ -97,7 +97,7 @@
 (spray/defsub world
   [(u/translate [circle-button
                  (u/translate rule-button [0 100])]
-                [0 700])
+                [0 500])
    @shapes
    (map cp @control)])
 

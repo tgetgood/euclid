@@ -87,35 +87,22 @@
            acc
            acc))))))
 
-(defn mode-clicked [world click]
-  ::circle)
+(def click-path (spray/temp-key ::clicks))
 
-(defn build-shape [type stroke]
-  [])
-
-(defn handler [event-types xform rf])
-
-(defn subscription [inputs reaction-fn])
-
-(defn emit [db & events]
-  )
-
-(defn temp-key [name]
-  [::temp-state name])
-
-(def click-path (temp-key ::clicks))
-(spray/defhandler click-detector ::potential-clicks
+#_(spray/defhandler click-detector ::potential-clicks
   [db ev]
   {:mouse-down (assoc-in db click-path ev)
-   :mouse-up   (do
-                 (when-let [down (get-in db click-path)]
-                   (emit {:down down :up ev}))
-                 (assoc-in db click-path nil))})
+   :mouse-up   (let [down (get-in db click-path)
+                     next-db (assoc-in db click-path nil)]
+                 (if down
+                   (spray/emit next-db {:down down :up ev})
+                   next-db))})
+
+(def click-processor
+  #_(spray/handler ::potential-clicks
+           (comp (filter valid-click?) (map unify-click))
+           ::click))
 
 (def handlers
-  [{:key ::clicks
-    :fn [click-tx (filter valid-click?) (map unify-click)]
-    :listen #{:mouse-down :mouse-up}}
-   {:key ::drags
-    :listen #{:mouse-down :mouse-up :mouse-move}
-    :fn drag-tx}])
+  [#_click-detector
+   click-processor])
