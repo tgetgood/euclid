@@ -47,15 +47,15 @@
          ::circle-button))
 
 (def rule-button
-  [button-bg
-   (-> u/rectangle
-       (assoc :width (* 80 (math/sqrt 2)) :height 2)
-       (u/style {:fill :black :stroke :none})
-       (u/translate [10 9])
-       (u/rotate [10 10] 45)
-       (u/tag ::rule-button))
-   (assoc point :centre [10 10] :radius 5)
-   (assoc point :centre [90 90] :radius 5)])
+  (-> [button-bg
+       (-> u/rectangle
+           (assoc :width (* 80 (math/sqrt 2)) :height 2)
+           (u/style {:fill :black :stroke :none})
+           (u/translate [10 9])
+           (u/rotate [10 10] 45))
+       (assoc point :centre [10 10] :radius 5)
+       (assoc point :centre [90 90] :radius 5)]
+      (u/tag ::rule-button)))
 
 (def selected
   (assoc u/rectangle :width 100 :height 100
@@ -65,8 +65,8 @@
   [circle-button
    (u/translate rule-button [0 100])
    (condp = @draw-mode
-     :circle selected
-     :line (assoc selected :corner [0 100])
+     ::circle-button selected
+     ::rule-button   (assoc selected :corner [0 100])
      [])])
 
 (def problem-1

@@ -1,5 +1,6 @@
 (ns euclid.handlers
-  (:require [ubik.geometry :as geo]
+  (:require [ubik.core :as u]
+            [ubik.geometry :as geo]
             [ubik.interactive.core :as spray]
             [ubik.math :as math]))
 
@@ -23,8 +24,10 @@
   "Returns a click event corresponding to a pair of (mouse-down, mouse-up)
   events. Click time is mouse-up time and location is the midpoint."
   [{{t1 :time [x1 y1] :location} :down
-                    {t2 :time [x2 y2] :location} :up}]
-  {:time t2 :location [(quot (+ x1 x2) 2) (quot (+ y1 y2) 2)]})
+    {t2 :time [x2 y2] :location :as up} :up}]
+  (assoc (dissoc up :type)
+         :time t2
+         :location [(quot (+ x1 x2) 2) (quot (+ y1 y2) 2)]))
 
 (defn click-tx
   "Stateful transducer which takes a sequence of mouse events and emits a
@@ -54,24 +57,31 @@
       (clicked-on? ::rule-button loc)   :line
       :else                             nil)))
 
-(defn drag-tx [xf]
-  (let [start (volatile! nil)]
-    (fn
-      ([] (xf))
-      ([acc] (xf acc))
-      ([acc n]
-       (if (:down? n)
-         (do
-           (vreset! start n)
-           acc)
-         (let [s @start]
-           (vreset! start nil)
-           (if (valid-click? {:down s :up n})
-             acc
-             (xf acc {:start (:location s)
-                      :end (:location n)
-                      :time (:time s)
-                      :duration [(:time s) (:time n)]}))))))))
+(def trans-drag-path (spray/temp-key ::td))
+
+(spray/defhandler drag-follow ::transient-drag
+  [db ev]
+  {:left-mouse-down (assoc-in db trans-drag-path ev)
+   :mouse-move (spray/emit db {:start (get-in db trans-drag-path)
+                               :end ev})
+   :left-mouse-up (assoc-in db trans-drag-path nil)})
+
+(def drag-p (spray/temp-key ::drag))
+
+(defn maybe-add-shape [db drag]
+  (if (:draw-mode db)
+    (let [s (assoc u/line :to [100 1000])]
+      (update db :shapes conj s)
+      db)))
+
+(spray/defhandler drag-detector ::drag
+  [db ev]
+  {::transient-drag (assoc-in db drag-p ev)
+   :left-mouse-up (let [drag (get-in db drag-p)]
+                    (println drag)
+                    (-> db
+                        (assoc-in drag-p nil)
+                        (maybe-add-shape drag)))})
 
 (defn drawings-tx [xf]
   (let [mode (volatile! nil)]
@@ -103,12 +113,31 @@
                  (comp (filter valid-click?) (map unify-click))
                  ::click))
 
+(def control-tags #{:euclid.game/circle-button :euclid.game/rule-button})
+
+(defn control-click
+  "Returns the unique button contained in shape. If shape contains more than one
+  button returns nil. If shape contains no buttons, returns nil. If you're rude,
+  returns nil."
+  [shape]
+  (let [tags (filter (partial contains? control-tags) (u/get-all-tags shape))]
+    (when (= 1 (count tags))
+      (first tags))))
+
 (def click-registrar
   (spray/handler ::click
                  (fn [db ev]
-                   (update db :control-points conj (:location ev)))))
+                   (let [bs (geo/effected-branches
+                             (:location ev)
+                             (:ubik.interactive.events/world ev))
+                         clicked-tag (control-click bs)]
+                     (if clicked-tag
+                       (assoc db :draw-mode clicked-tag)
+                       db)))))
 
 (def handlers
   [click-detector
    click-processor
-   click-registrar])
+   click-registrar
+   drag-follow
+   drag-detector])
