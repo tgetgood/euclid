@@ -87,8 +87,7 @@
   (spray/initialise!
    {:host host
     :init-db {:control-points [[250 300] [500 300]]
-              :shapes [(assoc u/line :from [250 300] :to [500 300])]
-              :draw-mode :line}
+              :shapes [(assoc u/line :from [250 300] :to [500 300])]}
     :handlers handlers/handlers
     :effects {}
     :root world}))

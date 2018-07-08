@@ -4,13 +4,7 @@
             [ubik.interactive.core :as spray]
             [ubik.math :as math]))
 
-;;;;; Handlers (transducers)
-
-(defn clicked-on?
-  "Returns true if the shape with tag contains location."
-  [tag location]
-  (when-let [shape [] #_(spray/find-by-tag tag)]
-    (geo/contains? shape location)))
+(def control-tags #{:euclid.game/circle-button :euclid.game/rule-button})
 
 (defn valid-click?
   "Returns true if the given down and up event are sufficiently close in space
@@ -29,34 +23,6 @@
          :time t2
          :location [(quot (+ x1 x2) 2) (quot (+ y1 y2) 2)]))
 
-(defn click-tx
-  "Stateful transducer which takes a sequence of mouse events and emits a
-  sequence of (mouse-down, mouse-up) pairs that could be clicks."
-  [xf]
-  (let [state (atom nil)
-        down (atom nil)]
-    (fn
-      ([] (xf))
-      ([acc] (xf acc))
-      ([acc n]
-       (if (= :mouse-down (:type n))
-         (do
-           (reset! state :down)
-           (reset! down n)
-           acc)
-         (let [start @down]
-           (reset! down nil)
-           (if (compare-and-set! state :down :up)
-             (xf acc {:down start :up n})
-             acc)))))))
-
-(defn selection-at [click]
-  (let [loc (:location click)]
-    (cond
-      (clicked-on? ::circle-button loc) :circle
-      (clicked-on? ::rule-button loc)   :line
-      :else                             nil)))
-
 (def trans-drag-path (spray/temp-key ::td))
 
 (spray/defhandler drag-follow ::transient-drag
@@ -69,33 +35,18 @@
 (def drag-p (spray/temp-key ::drag))
 
 (defn maybe-add-shape [db drag]
-  (if (:draw-mode db)
+  (if (contains? control-tags (:draw-mode db))
     (let [s (assoc u/line :to [100 1000])]
-      (update db :shapes conj s)
-      db)))
+      (update db :shapes conj s))
+    db))
 
 (spray/defhandler drag-detector ::drag
   [db ev]
   {::transient-drag (assoc-in db drag-p ev)
    :left-mouse-up (let [drag (get-in db drag-p)]
-                    (println drag)
                     (-> db
                         (assoc-in drag-p nil)
                         (maybe-add-shape drag)))})
-
-(defn drawings-tx [xf]
-  (let [mode (volatile! nil)]
-    (fn
-      ([] (xf))
-      ([acc] (xf acc))
-      ([acc n]
-       (if (:mode n)
-         (do
-           (vreset! mode (:mode n))
-           acc)
-         (if-let [m @mode]
-           acc
-           acc))))))
 
 (def click-path (spray/temp-key ::clicks))
 
@@ -113,12 +64,10 @@
                  (comp (filter valid-click?) (map unify-click))
                  ::click))
 
-(def control-tags #{:euclid.game/circle-button :euclid.game/rule-button})
-
 (defn control-click
   "Returns the unique button contained in shape. If shape contains more than one
-  button returns nil. If shape contains no buttons, returns nil. If you're rude,
-  returns nil."
+  button returns nil. If shape contains no buttons, returns nil. If you look
+  directly at it, returns nil."
   [shape]
   (let [tags (filter (partial contains? control-tags) (u/get-all-tags shape))]
     (when (= 1 (count tags))
