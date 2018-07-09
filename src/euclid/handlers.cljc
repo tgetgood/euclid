@@ -4,7 +4,7 @@
             [ubik.interactive.core :as spray]
             [ubik.math :as math]))
 
-(def control-tags #{:euclid.game/circle-button :euclid.game/rule-button})
+(def control-tags #{:euclid.core/circle-button :euclid.core/rule-button})
 
 (defn valid-click?
   "Returns true if the given down and up event are sufficiently close in space
@@ -48,8 +48,8 @@
 
 (defn create-shape [mode {{l1 :location} :start {l2 :location} :end}]
   (case mode
-    :euclid.game/rule-button (assoc u/line :from l1 :to l2)
-    :euclid.game/circle-button (assoc u/circle
+    :euclid.core/rule-button (assoc u/line :from l1 :to l2)
+    :euclid.core/circle-button (assoc u/circle
                                       :centre l1
                                       :radius (math/norm (map - l1 l2)))
     ;; REVIEW: Don't error on bad shape, just return no shape
