@@ -33,12 +33,16 @@
 (spray/defhandler drag-follow ::transient-drag
   [db ev]
   {:left-mouse-down (assoc-in db trans-drag-path ev)
-   :mouse-move (spray/emit db {:start (get-in db trans-drag-path)
-                               :end ev})
-   :left-mouse-up (spray/emit (assoc-in db trans-drag-path nil) nil)})
+   :mouse-move (if-let [start (get-in db trans-drag-path)]
+                 (spray/emit db {:start start :end ev})
+                 db)
+   :left-mouse-up (if (get-in db trans-drag-path)
+                    (spray/emit (assoc-in db trans-drag-path nil) nil)
+                    db)})
 
 (spray/defhandler drag-catcher ::drag
-  )
+  []
+  {})
 
 (def drag-p (spray/temp-key ::drag))
 
