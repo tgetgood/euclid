@@ -26,23 +26,23 @@
 (defn valid-drag?
   "Returns true iff the event passed in qualifies as a valid drag."
   [{{[x1 y1] :location} :start {[x2 y2] :location} :end}]
-  (< 100 (+ (math/abs (- x1 x2)) (math/abs (- y1 y2)))))
+  (< 20 (+ (math/abs (- x1 x2)) (math/abs (- y1 y2)))))
 
-(def trans-drag-path (spray/temp-key ::td))
+(def drag-start (spray/temp-key ::drag-start))
 
 (spray/defhandler drag-follow ::transient-drag
   [db ev]
-  {:left-mouse-down (assoc-in db trans-drag-path ev)
-   :mouse-move (if-let [start (get-in db trans-drag-path)]
-                 (spray/emit db {:start start :end ev})
-                 db)
-   :left-mouse-up (if (get-in db trans-drag-path)
-                    (spray/emit (assoc-in db trans-drag-path nil) nil)
-                    db)})
-
-(spray/defhandler drag-catcher ::drag
-  []
-  {})
+  {:left-mouse-down (assoc-in db drag-start ev)
+   :mouse-move      (if-let [start (get-in db drag-start)]
+                      (assoc db :current-drag {:start start :end ev})
+                      db)
+   :left-mouse-up   (let [next-db (-> db
+                                      (assoc :current-drag nil)
+                                      (assoc-in drag-start nil))
+                          drag    (:current-drag db)]
+                      (if drag
+                        (spray/emit next-db drag)
+                        next-db))})
 
 (def drag-p (spray/temp-key ::drag))
 
@@ -61,11 +61,11 @@
     db))
 
 (def drag-filter
-  (spray/handler ::transient-drag (filter valid-drag?) ::valid-drag))
+  (spray/handler ::transient-drag (filter valid-drag?) ::drag))
 
 (def drag-detector
   (spray/handler ::drag
-    (fn [db ev] (maybe-add-shape db ev))))
+    (fn [db ev]  (maybe-add-shape db ev))))
 
 (def click-path (spray/temp-key ::clicks))
 

@@ -79,10 +79,16 @@
    (u/with-style {:stroke :magenta}
      (assoc u/line :from [150 0] :to [400 0]))])
 
+(spray/defsub current-draw
+  (when (handlers/valid-drag? (:current-drag @spray/db))
+    (handlers/create-shape @draw-mode (:current-drag @spray/db))))
+
+
 (spray/defsub world
   [(u/translate (u/translate @control-panel [0 100])
                 [0 500])
    @shapes
+   (or @current-draw [])
    (map #(assoc point :centre %) @control)])
 
 (defn start-game []
