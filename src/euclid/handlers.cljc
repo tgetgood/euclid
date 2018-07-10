@@ -35,7 +35,11 @@
   {:left-mouse-down (assoc-in db drag-start ev)
    :mouse-move      (if-let [start (get-in db drag-start)]
                       (assoc db :current-drag {:start start :end ev})
+
                       db)
+   :mouse-out       (-> db
+                        (assoc :current-drag nil)
+                        (assoc-in drag-start nil))
    :left-mouse-up   (let [next-db (-> db
                                       (assoc :current-drag nil)
                                       (assoc-in drag-start nil))
@@ -57,7 +61,10 @@
 
 (defn maybe-add-shape [{:keys [draw-mode] :as db} drag]
   (if (contains? control-tags draw-mode)
-    (update db :shapes conj (create-shape draw-mode drag))
+    (do
+      ;; FIXME: Side effects in user code!!!
+      (spray/checkpoint!)
+      (update db :shapes conj (create-shape draw-mode drag)))
     db))
 
 (def drag-filter
@@ -65,7 +72,8 @@
 
 (def drag-detector
   (spray/handler ::drag
-    (fn [db ev]  (maybe-add-shape db ev))))
+    (fn [db ev]
+      (maybe-add-shape db ev))))
 
 (def click-path (spray/temp-key ::clicks))
 
@@ -103,10 +111,56 @@
           (assoc db :draw-mode clicked-tag)
           db)))))
 
+(defn emit-key [k {:keys [alt control]}]
+  (let [c (if control "C-" "")
+        a (if alt "M-" "")]
+    (str c a k)))
+
+(def key-path (spray/temp-key ::keypress))
+
+(spray/defhandler keypress ::keypress
+  [db ev]
+  {:key-down (case (:key ev)
+               "Control" (update-in db key-path assoc :control true)
+               "Shift"   db
+               "Alt"     (update-in db key-path assoc :alt true)
+               db)
+   :key-up   (let [k (:key ev)]
+               (case k
+                 "Control" (update-in db key-path assoc :control false)
+                 "Shift"   db
+                 "Alt"     (update-in db key-path assoc :alt false)
+                 (spray/emit db {:time (:time ev)
+                                 :key (emit-key k (get-in db key-path))})))})
+
+(def undo
+  (spray/handler ::keypress (filter #(= "C-z" (:key %))) ::undo))
+
+(def redo
+  (spray/handler ::keypress (filter #(= "C-r" (:key %))) ::redo))
+
+(def undo-it
+  (spray/handler ::undo
+    (fn [db _]
+      (spray/undo!)
+      db)))
+
+(def redo-it
+  (spray/handler ::redo
+    (fn [db _]
+      (spray/redo!)
+      db)))
+
+
 (def handlers
   [click-detector
    click-processor
    click-registrar
+   keypress
+   undo
+   undo-it
+   redo
+   redo-it
    drag-follow
    drag-filter
    drag-detector])
