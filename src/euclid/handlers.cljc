@@ -4,6 +4,37 @@
             [ubik.interactive.core :as spray]
             [ubik.math :as math]))
 
+;;;;; Intersections
+
+(defn pairs [s]
+  (loop [[h & t] s
+         acc []]
+    (if (seq t)
+      (recur t (concat acc (map (fn [x] [h x]) t)))
+      acc)))
+
+;; (x - x1)^2 + (y - y1)^2 = r1^2
+;; (x - x2) ^2 + (y - y2)^2 = r2^2
+
+(defn intersection-points [[x y]]
+  (if (every? #(contains? % :radius) [x y])
+    (let [{[x1 y1] :centre r1 :radius} x
+          {[x2 y2] :centre r2 :radius} y
+          d (math/norm [(- x1 x2) (- y1 y2)])]
+      (if (< (+ r1 r2) d)
+        []
+        )
+      )))
+
+(defn detect-control-points [shapes]
+  (into
+   #{}
+   (concat
+    (mapcat (fn [s] (when (u/segment? s) (u/endpoints s))) shapes)
+    (mapcat intersection-points (pairs shapes)))))
+
+;;;;; Handlers
+
 (def control-tags #{:euclid.core/circle-button :euclid.core/rule-button})
 
 (defn valid-click?
@@ -67,11 +98,25 @@
       (update db :shapes conj (create-shape draw-mode drag)))
     db))
 
+(spray/defhandler snap-to-controls ::snap-drag
+  [db drag]
+  {::drag (let [controls (detect-control-points (:shapes db))
+                start (:location (:start drag))
+                end (:location (:end drag))
+                [sd pstart] (first
+                             (sort (map (fn [c] [(math/dist start c) c]) controls)))
+                [ed pend] (first
+                           (sort (map (fn [c] [(math/dist end c) c]) controls)))
+                d (cond-> drag
+                    (< sd 10) (assoc-in [:start :location] pstart)
+                    (< ed 10) (assoc-in [:end :location] pend))]
+            (spray/emit db d))})
+
 (def drag-filter
   (spray/handler ::transient-drag (filter valid-drag?) ::drag))
 
 (def drag-detector
-  (spray/handler ::drag
+  (spray/handler ::snap-drag
     (fn [db ev]
       (maybe-add-shape db ev))))
 
@@ -151,7 +196,6 @@
       (spray/redo!)
       db)))
 
-
 (def handlers
   [click-detector
    click-processor
@@ -163,4 +207,5 @@
    redo-it
    drag-follow
    drag-filter
+   snap-to-controls
    drag-detector])

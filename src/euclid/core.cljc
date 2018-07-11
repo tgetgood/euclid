@@ -15,7 +15,7 @@
   (:shapes @spray/db))
 
 (spray/defsub control
-  (:control-points @spray/db))
+  (handlers/detect-control-points @shapes))
 
 (spray/defsub draw-mode
   (:draw-mode @spray/db))
@@ -94,8 +94,7 @@
 (defn start-game []
   (spray/initialise!
    {:host host
-    :init-db {:control-points [[250 300] [500 300]]
-              :shapes [(assoc u/line :from [250 300] :to [500 300])]}
+    :init-db {:shapes [(assoc u/line :from [250 300] :to [500 300])]}
     :handlers handlers/handlers
     :effects {}
     :root world}))
