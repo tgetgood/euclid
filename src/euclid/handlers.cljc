@@ -16,15 +16,50 @@
 ;; (x - x1)^2 + (y - y1)^2 = r1^2
 ;; (x - x2) ^2 + (y - y2)^2 = r2^2
 
-(defn intersection-points [[x y]]
-  (if (every? #(contains? % :radius) [x y])
-    (let [{[x1 y1] :centre r1 :radius} x
-          {[x2 y2] :centre r2 :radius} y
-          d (math/norm [(- x1 x2) (- y1 y2)])]
-      (if (< (+ r1 r2) d)
-        []
-        )
-      )))
+(defn circle-circle-intersection [{[x1 y1] :centre r1 :radius}
+                                  {[x2 y2] :centre r2 :radius}]
+  (let [s  [(- x1 x2) (- y1 y2)]
+        d2 (math/dot s s)
+        d  (math/sqrt d2)]
+    (if (< (+ r1 r2) d)
+      []
+      (let [[dx dy] (mapv #(/ % d) s)
+            cosθ    (/ (- (* r2 r2) (* r1 r1) d2) (* 2 r1 d))
+            sinθ    (math/sqrt (- 1 (* cosθ cosθ)))
+            i1      [(+ x1 (* r1 (+ (* dx cosθ) (* -1 dy sinθ))))
+                     (+ y1 (* r1 (+ (* dx sinθ) (* dy cosθ))))]
+            i2      [(+ x1 (* r1 (+ (* dx cosθ) (* dy sinθ))))
+                     (+ y1 (* r1 (+ (* -1 dx sinθ) (* dy cosθ))))]]
+        [i1 i2]))))
+
+(defn line-line-intersection [{[xp yp] :from [xp2 yp2] :to :as l1}
+                              {[xq yq] :from [xq2 yq2] :to}]
+  (let [[px py] [(- xp2 xp) (- yp2 yp)]
+        [qx qy] [(- xq2 xq) (- yq2 yq)]
+        s (/ (- (* px (- yq yp)) (* py (- xq xp))) (- (* qx py) (* qy px)))]
+    (when (< 0 s 1)
+      (let [i [(+ xq (* qx s)) (+ yq (* s qy))]]
+        (when (geo/contains? l1 i)
+          [i])))))
+
+(defn line-circle-intersection [x y]
+  )
+
+(defn intersection-points* [[x y]]
+  (cond
+    (and (every? #(contains? % :radius) [x y]))
+    (circle-circle-intersection x y)
+
+    (and (every? #(contains? % :from) [x y]))
+    (line-line-intersection x y)
+
+    (contains? x :from)
+    (line-circle-intersection x y)
+
+    :else
+    (line-circle-intersection y x)))
+
+(def intersection-points (memoize intersection-points*))
 
 (defn detect-control-points [shapes]
   (into

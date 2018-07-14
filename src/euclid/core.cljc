@@ -94,7 +94,8 @@
 (defn start-game []
   (spray/initialise!
    {:host host
-    :init-db {:shapes [(assoc u/line :from [250 300] :to [500 300])]}
+    :init-db {:shapes [(assoc u/circle :centre [200 200] :radius 100)
+                       (assoc u/circle :centre [300 300] :radius 100)]}
     :handlers handlers/handlers
     :effects {}
     :root world}))
