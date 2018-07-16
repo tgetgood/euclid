@@ -1,5 +1,7 @@
 (ns euclid.handlers
+  (:refer-clojure :exclude [+ - *])
   (:require [ubik.core :as u]
+            [ubik.lang :refer [+ - *]]
             [ubik.geometry :as geo]
             [ubik.interactive.core :as spray]
             [ubik.math :as math]))
@@ -39,10 +41,10 @@
         (when (geo/contains? l1 i)
           [i])))))
 
-(defn closest-point [c {p :from :as l}]
-  (let [u (math/unit l)
-        t (math/dot (mapv - c p) u)]
-    (mapv + (mapv #(* t %) u) p)))
+(defn closest-point [c l]
+  (let [u (geo/unit l)
+        t (u/dot (- c p) u)]
+    (+ (* t u) (u/origin l))))
 
 (defn line-circle-intersection [{[x1 y1] :from [x2 y2] :to :as l}
                                 {[cx cy :as c] :centre r :radius}]
