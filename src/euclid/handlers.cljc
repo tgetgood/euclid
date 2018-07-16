@@ -13,9 +13,6 @@
       (recur t (concat acc (map (fn [x] [h x]) t)))
       acc)))
 
-;; (x - x1)^2 + (y - y1)^2 = r1^2
-;; (x - x2) ^2 + (y - y2)^2 = r2^2
-
 (defn circle-circle-intersection [{[x1 y1] :centre r1 :radius}
                                   {[x2 y2] :centre r2 :radius}]
   (let [s  [(- x1 x2) (- y1 y2)]
@@ -42,8 +39,22 @@
         (when (geo/contains? l1 i)
           [i])))))
 
-(defn line-circle-intersection [x y]
-  )
+(defn closest-point [c {p :from :as l}]
+  (let [u (math/unit l)
+        t (math/dot (mapv - c p) u)]
+    (mapv + (mapv #(* t %) u) p)))
+
+(defn line-circle-intersection [{[x1 y1] :from [x2 y2] :to :as l}
+                                {[cx cy :as c] :centre r :radius}]
+  (let [p (closest-point c l)
+        cd (math/dist p c)]
+    (if (= cd r)
+      [p]
+      (when (< cd r)
+        (let [d (math/sqrt (- (* r r) (* cd cd)))
+              u (math/unit l)
+              du (mapv #(* d %) u)]
+          (filter #(geo/contains? l %) [(mapv + p du) (mapv - p du)]))))))
 
 (defn intersection-points* [[x y]]
   (cond
