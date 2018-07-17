@@ -65,10 +65,17 @@
 
 (spray/defsub control-panel
   [circle-button
+   (-> [(-> (assoc u/text :text "pan")
+            (u/scale 3)
+            (u/translate [20 40]))
+        button-bg]
+       (u/translate [0 200])
+       (u/tag ::pan))
    (u/translate rule-button [0 100])
    (condp = @draw-mode
      ::circle-button selected
      ::rule-button   (assoc selected :corner [0 100])
+     ::pan (u/translate selected [0 200])
      [])])
 
 (def problem-1
@@ -87,15 +94,14 @@
 (spray/defsub world
   [(u/translate (u/translate @control-panel [0 100])
                 [0 500])
-   @shapes
+   (or @shapes [])
    (or @current-draw [])
    (map #(assoc point :centre %) @control)])
 
 (defn start-game []
   (spray/initialise!
    {:host host
-    :init-db {:shapes [(assoc u/circle :centre [200 200] :radius 100)
-                       (assoc u/circle :centre [300 300] :radius 100)]}
+    :init-db {}
     :handlers handlers/handlers
     :effects {}
     :root world}))

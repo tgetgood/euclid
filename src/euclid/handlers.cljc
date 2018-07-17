@@ -80,15 +80,17 @@
 (def intersection-points (memoize intersection-points*))
 
 (defn detect-control-points [shapes]
-  (into
-   #{}
-   (concat
-    (mapcat (fn [s] (when (u/segment? s) (u/endpoints s))) shapes)
-    (mapcat intersection-points (pairs shapes)))))
+  (when shapes
+    (into
+     #{}
+     (concat
+      (mapcat (fn [s] (when (u/segment? s) (u/endpoints s))) shapes)
+      (mapcat intersection-points (pairs shapes))))))
 
 ;;;;; Handlers
 
-(def control-tags #{:euclid.core/circle-button :euclid.core/rule-button})
+(def control-tags #{:euclid.core/circle-button :euclid.core/rule-button
+                    :euclid.core/pan})
 
 (defn valid-click?
   "Returns true if the given down and up event are sufficiently close in space
@@ -135,6 +137,7 @@
 (def drag-p (spray/temp-key ::drag))
 
 (defn create-shape [mode {{l1 :location} :start {l2 :location} :end}]
+  #?(:cljs (when (some nil? [l1 l2]) (.trace js/console)))
   (case mode
     :euclid.core/rule-button (assoc u/line :from l1 :to l2)
     :euclid.core/circle-button (assoc u/circle
@@ -144,32 +147,32 @@
     []))
 
 (defn maybe-add-shape [{:keys [draw-mode] :as db} drag]
-  (if (contains? control-tags draw-mode)
-    (do
-      ;; FIXME: Side effects in user code!!!
-      (spray/checkpoint!)
-      (update db :shapes conj (create-shape draw-mode drag)))
+  (if (contains? (disj control-tags :euclid.core/pan) draw-mode)
+    (update db :shapes conj (create-shape draw-mode drag))
     db))
 
 (spray/defhandler snap-to-controls ::snap-drag
   [db drag]
-  {::drag (let [controls (detect-control-points (:shapes db))
-                start (:location (:start drag))
-                end (:location (:end drag))
-                [sd pstart] (first
-                             (sort (map (fn [c] [(math/dist start c) c]) controls)))
-                [ed pend] (first
-                           (sort (map (fn [c] [(math/dist end c) c]) controls)))
-                d (cond-> drag
-                    (< sd 10) (assoc-in [:start :location] pstart)
-                    (< ed 10) (assoc-in [:end :location] pend))]
-            (spray/emit db d))})
+  {::drag
+   (let [controls (detect-control-points (:shapes db))]
+     (if (empty? controls)
+       (spray/emit db drag)
+       (let [start       (:location (:start drag))
+             end         (:location (:end drag))
+             [sd p] (first
+                          (sort (map (fn [c] [(math/dist start c) c]) controls)))
+             [ed pend]   (first
+                          (sort (map (fn [c] [(math/dist end c) c]) controls)))
+             d           (cond-> drag
+                           (< sd 20) (assoc-in [:start :location] pstart)
+                           (< ed 20) (assoc-in [:end :location] pend))]
+         (spray/emit db d))))})
 
 (def drag-filter
   (spray/handler ::transient-drag (filter valid-drag?) ::drag))
 
 (def drag-detector
-  (spray/handler ::snap-drag
+  (spray/db-handler ::snap-drag
     (fn [db ev]
       (maybe-add-shape db ev))))
 
@@ -199,7 +202,7 @@
       (first tags))))
 
 (def click-registrar
-  (spray/handler ::click
+  (spray/db-handler ::click
     (fn [db ev]
       (let [bs (geo/effected-branches
                 (:location ev)
@@ -240,13 +243,11 @@
 (def undo-it
   (spray/handler ::undo
     (fn [db _]
-      (spray/undo!)
       db)))
 
 (def redo-it
   (spray/handler ::redo
     (fn [db _]
-      (spray/redo!)
       db)))
 
 (def handlers
