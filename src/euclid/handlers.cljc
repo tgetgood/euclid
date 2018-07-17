@@ -1,9 +1,9 @@
 (ns euclid.handlers
   (:refer-clojure :exclude [+ - *])
   (:require [ubik.core :as u]
-            [ubik.lang :refer [+ - *]]
             [ubik.geometry :as geo]
             [ubik.interactive.core :as spray]
+            [ubik.lang :as lang :refer [* + -]]
             [ubik.math :as math]))
 
 ;;;;; Intersections
@@ -15,35 +15,40 @@
       (recur t (concat acc (map (fn [x] [h x]) t)))
       acc)))
 
-(defn circle-circle-intersection [{[x1 y1] :centre r1 :radius}
-                                  {[x2 y2] :centre r2 :radius}]
-  (let [s  [(- x1 x2) (- y1 y2)]
-        d2 (math/dot s s)
-        d  (math/sqrt d2)]
-    (if (< (+ r1 r2) d)
+(defn circle-circle-intersection [{c1 :centre r1 :radius}
+                                  {c2 :centre r2 :radius}]
+  (let [s  (- c1 c2)
+        l2 (u/dot s s)
+        l  (math/sqrt l2)]
+    (if (< (+ r1 r2) l)
       []
-      (let [[dx dy] (mapv #(/ % d) s)
-            cosθ    (/ (- (* r2 r2) (* r1 r1) d2) (* 2 r1 d))
-            sinθ    (math/sqrt (- 1 (* cosθ cosθ)))
-            i1      [(+ x1 (* r1 (+ (* dx cosθ) (* -1 dy sinθ))))
-                     (+ y1 (* r1 (+ (* dx sinθ) (* dy cosθ))))]
-            i2      [(+ x1 (* r1 (+ (* dx cosθ) (* dy sinθ))))
-                     (+ y1 (* r1 (+ (* -1 dx sinθ) (* dy cosθ))))]]
+      (let [d               (* (/ 1 l) s)
+            cosθ            (/ (- (* r2 r2) (* r1 r1) l2) (* 2 r1 l))
+            sinθ            (math/sqrt (- 1 (* cosθ cosθ)))
+            [dxsinθ dysinθ] (* sinθ d)
+            [dxcosθ dycosθ] (* cosθ d)
+            i1              (+ c1 (* r1 [(+ dxcosθ (* -1 dysinθ))
+                                         (+ dxsinθ dycosθ)]))
+            i2              (+ c1 (* r1 [(+ dxcosθ dysinθ)
+                                         (+ (* -1 dxsinθ) dycosθ)]))]
         [i1 i2]))))
 
-(defn line-line-intersection [{[xp yp] :from [xp2 yp2] :to :as l1}
-                              {[xq yq] :from [xq2 yq2] :to}]
-  (let [[px py] [(- xp2 xp) (- yp2 yp)]
-        [qx qy] [(- xq2 xq) (- yq2 yq)]
+(defn line-line-intersection [l m]
+  (let [[px py] (u/base-vector l)
+        [qx qy :as q] (u/base-vector m)
+        [xp yp] (u/origin l)
+        [xq yq :as q0] (u/origin m)
+        ;; FIXME: The math to get this isn't terribly nice, but this equation is
+        ;; just awful...
         s (/ (- (* px (- yq yp)) (* py (- xq xp))) (- (* qx py) (* qy px)))]
     (when (< 0 s 1)
-      (let [i [(+ xq (* qx s)) (+ yq (* s qy))]]
-        (when (geo/contains? l1 i)
-          [i])))))
+      (let [intersect (+ q0 (* s q))]
+        (when (geo/contains? l intersect)
+          [intersect])))))
 
 (defn closest-point [c l]
-  (let [u (geo/unit l)
-        t (u/dot (- c p) u)]
+  (let [u (u/unit l)
+        t (u/dot (- c (u/origin l)) u)]
     (+ (* t u) (u/origin l))))
 
 (defn line-circle-intersection [{[x1 y1] :from [x2 y2] :to :as l}
@@ -54,9 +59,9 @@
       [p]
       (when (< cd r)
         (let [d (math/sqrt (- (* r r) (* cd cd)))
-              u (math/unit l)
-              du (mapv #(* d %) u)]
-          (filter #(geo/contains? l %) [(mapv + p du) (mapv - p du)]))))))
+              u (u/unit l)
+              du (* d u)]
+          (filter #(geo/contains? l %) [(+ p du) (- p du)]))))))
 
 (defn intersection-points* [[x y]]
   (cond
