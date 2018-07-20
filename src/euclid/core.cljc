@@ -91,6 +91,7 @@
     (handlers/create-shape @draw-mode (:current-drag @spray/db))))
 
 
+
 (spray/defsub world
   [(u/translate (u/translate @control-panel [0 100])
                 [0 500])
@@ -103,11 +104,16 @@
    {:host host
     :init-db {}
     :handlers handlers/handlers
-    :effects {}
+    ;; TODO: These effect handlers should be built in. I'm not exactly sure how
+    ;; best to build them in though. I guess merge in default handlers.
+    :effects {::handlers/undo [(fn [e] (ubik.interactive.db/undo!))]
+              ::handlers/redo [(fn [e] (ubik.interactive.db/redo!))]
+              ::handlers/checkpoint [(fn [e] (ubik.interactive.db/checkpoint!))]}
     :root world}))
 
+
 (defn reset []
-  (reset! ubik.interactive.db/app-db :ubik.interactive.db/uninitialised)
+  (ubik.interactive.db/reset-db! :ubik.interactive.db/uninitialised)
   (start-game))
 
 (defn ^:export init []

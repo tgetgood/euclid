@@ -111,8 +111,8 @@
 
 (defn valid-drag?
   "Returns true iff the event passed in qualifies as a valid drag."
-  [{{[x1 y1] :location} :start {[x2 y2] :location} :end}]
-  (< 20 (+ (math/abs (- x1 x2)) (math/abs (- y1 y2)))))
+  [{{start :location} :start {end :location} :end}]
+  (and start end (< 20 (lang/length (- end start)))))
 
 (def drag-start (spray/temp-key ::drag-start))
 
@@ -172,9 +172,13 @@
   (spray/handler ::transient-drag (filter valid-drag?) ::drag))
 
 (def drag-detector
-  (spray/db-handler ::snap-drag
-    (fn [db ev]
-      (maybe-add-shape db ev))))
+  (spray/handler ::snap-drag
+    (spray/transducer (fn [db ev]
+                        (let [db' (maybe-add-shape db ev)]
+                          (if (= db db')
+                            db
+                            (spray/emit db' {})))))
+    ::checkpoint))
 
 (def click-path (spray/temp-key ::clicks))
 
