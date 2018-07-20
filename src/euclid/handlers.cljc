@@ -159,7 +159,7 @@
        (spray/emit db drag)
        (let [start       (:location (:start drag))
              end         (:location (:end drag))
-             [sd p] (first
+             [sd pstart] (first
                           (sort (map (fn [c] [(math/dist start c) c]) controls)))
              [ed pend]   (first
                           (sort (map (fn [c] [(math/dist end c) c]) controls)))
@@ -240,25 +240,13 @@
 (def redo
   (spray/handler ::keypress (filter #(= "C-r" (:key %))) ::redo))
 
-(def undo-it
-  (spray/handler ::undo
-    (fn [db _]
-      db)))
-
-(def redo-it
-  (spray/handler ::redo
-    (fn [db _]
-      db)))
-
 (def handlers
   [click-detector
    click-processor
    click-registrar
    keypress
    undo
-   undo-it
    redo
-   redo-it
    drag-follow
    drag-filter
    snap-to-controls
