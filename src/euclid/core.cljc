@@ -99,16 +99,22 @@
    (or @current-draw [])
    (map #(assoc point :centre %) @control)])
 
+(def undo-plugin
+  (spray/undo-plugin
+   {:events {:undo ::handlers/undo
+             :redo ::handlers/redo
+             :checkpoint ::handlers/checkpoint}
+    :save-fn (fn [db] (:shapes db))
+    :restore-fn (fn [db snapshot] (assoc db :shapes snapshot))
+    :max-undo 50}))
+
 (defn start-game []
   (spray/initialise!
    {:host host
-    :init-db {}
+    :plugins [undo-plugin]
     :handlers handlers/handlers
     ;; TODO: These effect handlers should be built in. I'm not exactly sure how
     ;; best to build them in though. I guess merge in default handlers.
-    :effects {::handlers/undo [(fn [e] (ubik.interactive.db/undo!))]
-              ::handlers/redo [(fn [e] (ubik.interactive.db/redo!))]
-              ::handlers/checkpoint [(fn [e] (ubik.interactive.db/checkpoint!))]}
     :root world}))
 
 
