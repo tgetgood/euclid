@@ -87,7 +87,9 @@
       (mapcat (fn [s] (when (u/segment? s) (u/endpoints s))) shapes)
       (mapcat intersection-points (pairs shapes))))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; Handlers
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (def control-tags #{:euclid.core/circle-button :euclid.core/rule-button
                     :euclid.core/pan})
@@ -114,30 +116,20 @@
   [{{start :location} :start {end :location} :end}]
   (and start end (< 20 (lang/length (- end start)))))
 
-(def drag-start (spray/temp-key ::drag-start))
+(spray/defhandler all-drags
+  [{:keys [start]} ev]
+  {:left-mouse-down {:start ev}
+   :mouse-move      (when start
+                      (spray/emit {} {:complete? false :start start :end ev}))
 
-(spray/defhandler drag-follow ::transient-drag
-  [db ev]
-  {:left-mouse-down (assoc-in db drag-start ev)
-   :mouse-move      (if-let [start (get-in db drag-start)]
-                      (assoc db :current-drag {:start start :end ev})
+   :mouse-out     (spray/emit {} ::dropped)
+   :left-mouse-up (when start
+                    (spray/emit {} {:complete? true :start start :end ev}))})
 
-                      db)
-   :mouse-out       (-> db
-                        (assoc :current-drag nil)
-                        (assoc-in drag-start nil))
-   :left-mouse-up   (let [next-db (-> db
-                                      (assoc :current-drag nil)
-                                      (assoc-in drag-start nil))
-                          drag    (:current-drag db)]
-                      (if drag
-                        (spray/emit next-db drag)
-                        next-db))})
-
-(def drag-p (spray/temp-key ::drag))
+(def drag
+  (spray/handler valid-drag (comp (filter valid-drag?) (filter :complete?))))
 
 (defn create-shape [mode {{l1 :location} :start {l2 :location} :end}]
-  #?(:cljs (when (some nil? [l1 l2]) (.trace js/console)))
   (case mode
     :euclid.core/rule-button (assoc u/line :from l1 :to l2)
     :euclid.core/circle-button (assoc u/circle
@@ -152,18 +144,18 @@
     db))
 
 (spray/defhandler snap-to-controls ::snap-drag
-  [db drag]
-  {::drag
+  [db ev]
+  {drag
    (let [controls (detect-control-points (:shapes db))]
      (if (empty? controls)
-       (spray/emit db drag)
-       (let [start       (:location (:start drag))
-             end         (:location (:end drag))
+       (spray/emit db ev)
+       (let [start       (:location (:start ev))
+             end         (:location (:end ev))
              [sd pstart] (first
                           (sort (map (fn [c] [(math/dist start c) c]) controls)))
              [ed pend]   (first
                           (sort (map (fn [c] [(math/dist end c) c]) controls)))
-             d           (cond-> drag
+             d           (cond-> ev
                            (< sd 20) (assoc-in [:start :location] pstart)
                            (< ed 20) (assoc-in [:end :location] pend))]
          (spray/emit db d))))})
@@ -180,21 +172,15 @@
                             (spray/emit db' {})))))
     ::checkpoint))
 
-(def click-path (spray/temp-key ::clicks))
-
-(spray/defhandler click-detector ::potential-click
-  [db ev]
-  {:left-mouse-down (assoc-in db click-path ev)
-   :left-mouse-up   (let [down    (get-in db click-path)
-                          next-db (assoc-in db click-path nil)]
-                      (if down
-                        (spray/emit next-db {:down down :up ev})
-                        next-db))})
+(def potential-clicks
+  (spray/stateful-multiplex [{:keys [down]} ev]
+    {:left-mouse-down (spray/emit-state {:down ev})
+     :left-mouse-up   (when down
+                        (spray/emit-state {} {:down down :up ev}))}))
 
 (def click-processor
-  (spray/handler ::potential-click
-    (comp (filter valid-click?) (map unify-click))
-    ::click))
+  (spray/handler potential-clicks
+    (comp (filter valid-click?) (map unify-click))))
 
 (defn control-click
   "Returns the unique button contained in shape. If shape contains more than one
@@ -223,7 +209,7 @@
 
 (def key-path (spray/temp-key ::keypress))
 
-(spray/defhandler keypress ::keypress
+(spray/defhandler keypress
   [db ev]
   {:key-down (case (:key ev)
                "Control" (update-in db key-path assoc :control true)

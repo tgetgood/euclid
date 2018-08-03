@@ -11,14 +11,17 @@
 
 ;;;;; Subs
 
-(spray/defsub shapes
-  (:shapes @spray/db))
+(def shapes
+  (spray/subscription
+   (:shapes @spray/db)))
 
-(spray/defsub control
-  (handlers/detect-control-points @shapes))
+(def control
+  (spray/subscription
+   (handlers/detect-control-points @shapes)))
 
-(spray/defsub draw-mode
-  (:draw-mode @spray/db))
+(def draw-mode
+  (spray/subscription
+   (:draw-mode @spray/db)))
 
 ;;;;; UI
 
@@ -63,20 +66,21 @@
   (assoc u/rectangle :width 100 :height 100
          :style {:fill :green :opacity 0.3}))
 
-(spray/defsub control-panel
-  [circle-button
-   (-> [(-> (assoc u/text :text "pan")
-            (u/scale 3)
-            (u/translate [20 40]))
-        button-bg]
-       (u/translate [0 200])
-       (u/tag ::pan))
-   (u/translate rule-button [0 100])
-   (condp = @draw-mode
-     ::circle-button selected
-     ::rule-button   (assoc selected :corner [0 100])
-     ::pan (u/translate selected [0 200])
-     [])])
+(def control-panel
+  (spray/subscription
+   [circle-button
+    (-> [(-> (assoc u/text :text "pan")
+             (u/scale 3)
+             (u/translate [20 40]))
+         button-bg]
+        (u/translate [0 200])
+        (u/tag ::pan))
+    (u/translate rule-button [0 100])
+    (condp = @draw-mode
+      ::circle-button selected
+      ::rule-button   (assoc selected :corner [0 100])
+      ::pan (u/translate selected [0 200])
+      [])]))
 
 (def problem-1
   [(text
@@ -86,18 +90,19 @@
    (u/with-style {:stroke :magenta}
      (assoc u/line :from [150 0] :to [400 0]))])
 
-(spray/defsub current-draw
-  (when (handlers/valid-drag? (:current-drag @spray/db))
-    (handlers/create-shape @draw-mode (:current-drag @spray/db))))
+(def current-draw
+  (spray/subscription
+   (let [current (:current-drag @spray/db)]
+     (when (and (not (:complete? current)) (handlers/valid-drag? current))
+       (handlers/create-shape @draw-mode current)))))
 
-
-
-(spray/defsub world
-  [(u/translate (u/translate @control-panel [0 100])
-                [0 500])
-   (or @shapes [])
-   (or @current-draw [])
-   (map #(assoc point :centre %) @control)])
+(def world
+  (spray/subscription
+   [(u/translate (u/translate @control-panel [0 100])
+                 [0 500])
+    (or @shapes [])
+    (or @current-draw [])
+    (map #(assoc point :centre %) @control)]))
 
 (def undo-plugin
   (spray/undo-plugin
