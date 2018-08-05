@@ -127,7 +127,7 @@
                     (spray/emit {} {:complete? true :start start :end ev}))})
 
 (def drag
-  (spray/handler valid-drag (comp (filter valid-drag?) (filter :complete?))))
+  (spray/handler all-drags (comp (filter valid-drag?) (filter :complete?))))
 
 (defn create-shape [mode {{l1 :location} :start {l2 :location} :end}]
   (case mode
@@ -143,7 +143,7 @@
     (update db :shapes conj (create-shape draw-mode drag))
     db))
 
-(spray/defhandler snap-to-controls ::snap-drag
+(spray/defhandler snap-drag
   [db ev]
   {drag
    (let [controls (detect-control-points (:shapes db))]
@@ -160,23 +160,22 @@
                            (< ed 20) (assoc-in [:end :location] pend))]
          (spray/emit db d))))})
 
-(def drag-filter
-  (spray/handler ::transient-drag (filter valid-drag?) ::drag))
-
 (def drag-detector
-  (spray/handler ::snap-drag
+  #_(spray/handler snap-drag
     (spray/transducer (fn [db ev]
                         (let [db' (maybe-add-shape db ev)]
                           (if (= db db')
                             db
                             (spray/emit db' {})))))
-    ::checkpoint))
+  ))
 
 (def potential-clicks
-  (spray/stateful-multiplex [{:keys [down]} ev]
-    {:left-mouse-down (spray/emit-state {:down ev})
-     :left-mouse-up   (when down
-                        (spray/emit-state {} {:down down :up ev}))}))
+  (spray/stateful-handler
+   {:left-mouse-down (fn [{:keys [down]} ev]
+                       (spray/emit-state {:down ev}))
+    :left-mouse-up   (fn [{:keys [down]} ev]
+                       (when down
+                         (spray/emit-state {} {:down down :up ev})))}))
 
 (def click-processor
   (spray/handler potential-clicks
@@ -207,8 +206,6 @@
         a (if alt "M-" "")]
     (str c a k)))
 
-(def key-path (spray/temp-key ::keypress))
-
 (spray/defhandler keypress
   [db ev]
   {:key-down (case (:key ev)
@@ -225,13 +222,13 @@
                                  :key (emit-key k (get-in db key-path))})))})
 
 (def undo
-  (spray/handler ::keypress (filter #(= "C-z" (:key %))) ::undo))
+  (spray/handler ::keypress (filter #(= "C-z" (:key %)))))
 
 (def redo
-  (spray/handler ::keypress (filter #(= "C-r" (:key %))) ::redo))
+  (spray/handler ::keypress (filter #(= "C-r" (:key %)))))
 
 (def handlers
-  [click-detector
+  [] #_[click-detector
    click-processor
    click-registrar
    keypress
