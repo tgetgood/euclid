@@ -116,7 +116,7 @@
   [{{start :location} :start {end :location} :end}]
   (and start end (< 20 (lang/length (- end start)))))
 
-(spray/defhandler all-drags
+(spray/defprocess all-drags
   [{:keys [start]} ev]
   {:left-mouse-down {:start ev}
    :mouse-move      (when start
@@ -143,7 +143,7 @@
     (update db :shapes conj (create-shape draw-mode drag))
     db))
 
-(spray/defhandler snap-drag
+(spray/defprocess snap-drag
   [db ev]
   {drag
    (let [controls (detect-control-points (:shapes db))]
@@ -170,7 +170,7 @@
   ))
 
 (def potential-clicks
-  (spray/stateful-handler
+  (spray/process true
    {:left-mouse-down (fn [{:keys [down]} ev]
                        (spray/emit-state {:down ev}))
     :left-mouse-up   (fn [{:keys [down]} ev]
@@ -206,20 +206,19 @@
         a (if alt "M-" "")]
     (str c a k)))
 
-(spray/defhandler keypress
-  [db ev]
+(spray/defprocess keypress
+  [state ev]
   {:key-down (case (:key ev)
-               "Control" (update-in db key-path assoc :control true)
-               "Shift"   db
-               "Alt"     (update-in db key-path assoc :alt true)
-               db)
+               "Control" (assoc state :control true)
+               "Alt"     (assoc state :alt true)
+               nil)
    :key-up   (let [k (:key ev)]
                (case k
-                 "Control" (update-in db key-path assoc :control false)
-                 "Shift"   db
-                 "Alt"     (update-in db key-path assoc :alt false)
-                 (spray/emit db {:time (:time ev)
-                                 :key (emit-key k (get-in db key-path))})))})
+                 "Control" (assoc state :control false)
+                 "Alt"     (assoc state  :alt false)
+                 (spray/emit state
+                             {:time (:time ev)
+                              :key (emit-key k state)})))})
 
 (def undo
   (spray/handler ::keypress (filter #(= "C-z" (:key %)))))
