@@ -10,8 +10,7 @@
 
 (defonce host (hosts/default-host {}))
 
-
-(def db @handlers/app-db)
+(def db (handlers/app-db))
 
 ;;;;; Subs
 

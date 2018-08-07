@@ -3,6 +3,7 @@
   (:require [ubik.core :as u]
             [ubik.geometry :as geo]
             [ubik.interactive.core :as spray :include-macros true]
+            [ubik.interactive.process :as process]
             [ubik.lang :as lang :refer [* + -]]
             [ubik.math :as math]))
 
@@ -91,19 +92,26 @@
 ;;;;; Handlers
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(def app-db
+(def init-db
+  {:shapes []})
+
+(defonce db-handlers
   ^{:doc "Aggregate state of the application."}
   ;; Having a single reduced value for the application state isn't necessary,
   ;; but it gives us the benefits of re-frame or the Elm arch.
-  (atom (spray/stateful-process {:shapes []} {})))
+  (atom {}))
 
-(defn db-handler
+(defn app-db []
+  (spray/stateful-process init-db init-db @db-handlers))
+
+(defn reg-db-handler!
   ;; I've decided here to split the definition of the app-db process into pieces
   ;; to make it feel more like re-frame. This isn't necessary, and I don't know
   ;; as of yet whether it's a good thing or not.
+  {:style/indent [1]}
   [k m]
-  (swap! app-db spray/add-method k (fn [db e]
-                                 (let [db' (m db e)]
+  (swap! db-handlers assoc k (fn [db e]
+                               (let [db' (m db e)]
                                    (spray/emit db' db')))))
 
 (def control-tags #{:euclid.core/circle-button :euclid.core/rule-button
@@ -161,7 +169,7 @@
 
 (spray/defprocess snap-drag
   [db ev]
-  {drag
+  {#'drag
    (let [controls (detect-control-points (:shapes db))]
      (if (empty? controls)
        (spray/emit db ev)
@@ -176,14 +184,13 @@
                            (< ed 20) (assoc-in [:end :location] pend))]
          (spray/emit db d))))})
 
-(def drag-detector
-  #_(spray/handler snap-drag
-    (spray/transducer (fn [db ev]
-                        (let [db' (maybe-add-shape db ev)]
-                          (if (= db db')
-                            db
-                            (spray/emit db' {})))))
-  ))
+(reg-db-handler! #'snap-drag
+  (fn [db ev]
+    (let [db' (maybe-add-shape db ev)]
+      (if (= db db')
+        db
+        (spray/emit db' {}))))
+  )
 
 (def potential-clicks
   (spray/stateful-process
@@ -194,7 +201,7 @@
                          (spray/emit {} {:down down :up ev})))}))
 
 (def click-processor
-  (spray/tprocess potential-clicks
+  (spray/tprocess #'potential-clicks
     (comp (filter valid-click?) (map unify-click))))
 
 (defn control-click
@@ -206,16 +213,15 @@
     (when (= 1 (count tags))
       (first tags))))
 
-(def click-registrar
-  (db-handler click-processor
-    (fn [db ev]
-      (let [bs (geo/effected-branches
-                (:location ev)
-                (:ubik.interactive.events/world ev))
-            clicked-tag (control-click bs)]
-        (if clicked-tag
-          (assoc db :draw-mode clicked-tag)
-          db)))))
+(reg-db-handler! #'click-processor
+  (fn [db ev]
+    (let [bs (geo/effected-branches
+              (:location ev)
+              (:ubik.interactive.events/world ev))
+          clicked-tag (control-click bs)]
+      (if clicked-tag
+        (assoc db :draw-mode clicked-tag)
+        db))))
 
 (defn emit-key [k {:keys [alt control]}]
   (let [c (if control "C-" "")
