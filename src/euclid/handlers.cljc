@@ -170,15 +170,15 @@
   ))
 
 (def potential-clicks
-  (spray/process true
+  (spray/stateful-process
    {:left-mouse-down (fn [{:keys [down]} ev]
-                       (spray/emit-state {:down ev}))
+                       {:down ev})
     :left-mouse-up   (fn [{:keys [down]} ev]
                        (when down
-                         (spray/emit-state {} {:down down :up ev})))}))
+                         (spray/emit {} {:down down :up ev})))}))
 
 (def click-processor
-  (spray/handler potential-clicks
+  (spray/tprocess potential-clicks
     (comp (filter valid-click?) (map unify-click))))
 
 (defn control-click
@@ -221,10 +221,10 @@
                               :key (emit-key k state)})))})
 
 (def undo
-  (spray/handler ::keypress (filter #(= "C-z" (:key %)))))
+  (spray/tprocess ::keypress (filter #(= "C-z" (:key %)))))
 
 (def redo
-  (spray/handler ::keypress (filter #(= "C-r" (:key %)))))
+  (spray/tprocess ::keypress (filter #(= "C-r" (:key %)))))
 
 (def handlers
   [] #_[click-detector
