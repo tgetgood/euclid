@@ -3,11 +3,13 @@
             [ubik.core :as u]
             [ubik.hosts :as hosts]
             [ubik.interactive.core :as spray :include-macros true]
-            [ubik.math :as math]))
+            [ubik.math :as math]
+            [ubik.interactive.rt :as rt]))
 
 #?(:cljs (enable-console-print!))
 
 (defonce host (hosts/default-host {}))
+
 
 (def db @handlers/app-db)
 
@@ -95,7 +97,8 @@
 (def current-draw
   (spray/subscription
    (let [current (:current-drag @db)]
-     (when (and (not (:complete? current)) (handlers/valid-drag? current))
+     (when (and (not (:complete? current))
+                (handlers/valid-drag? current))
        (handlers/create-shape @draw-mode current)))))
 
 (def world
@@ -106,7 +109,7 @@
     (or @current-draw [])
     (map #(assoc point :centre %) @control)]))
 
-(def undo-plugin
+#_(def undo-plugin
   (spray/undo-plugin
    {:events {:undo ::handlers/undo
              :redo ::handlers/redo
@@ -118,11 +121,11 @@
 (defn start-game []
   (spray/initialise!
    {:host host
-    :plugins [undo-plugin]
-    :handlers handlers/handlers
     ;; TODO: These effect handlers should be built in. I'm not exactly sure how
     ;; best to build them in though. I guess merge in default handlers.
-    :root world}))
+    :ins []
+    :outs []
+    :render-root world}))
 
 
 (defn reset []

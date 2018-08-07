@@ -92,10 +92,10 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (def app-db
-  "Aggregate state of the application."
+  ^{:doc "Aggregate state of the application."}
   ;; Having a single reduced value for the application state isn't necessary,
   ;; but it gives us the benefits of re-frame or the Elm arch.
-  (atom (spray/stateful-process {:shapes [(assoc u/circle :radius 400)]} {})))
+  (atom (spray/stateful-process {:shapes []} {})))
 
 (defn db-handler
   ;; I've decided here to split the definition of the app-db process into pieces
@@ -108,6 +108,7 @@
 
 (def control-tags #{:euclid.core/circle-button :euclid.core/rule-button
                     :euclid.core/pan})
+
 
 (defn valid-click?
   "Returns true if the given down and up event are sufficiently close in space
@@ -142,7 +143,7 @@
                     (spray/emit {} {:complete? true :start start :end ev}))})
 
 (def drag
-  (spray/handler all-drags (comp (filter valid-drag?) (filter :complete?))))
+  (spray/tprocess all-drags (comp (filter valid-drag?) (filter :complete?))))
 
 (defn create-shape [mode {{l1 :location} :start {l2 :location} :end}]
   (case mode
@@ -206,7 +207,7 @@
       (first tags))))
 
 (def click-registrar
-  (spray/db-handler click-processor
+  (db-handler click-processor
     (fn [db ev]
       (let [bs (geo/effected-branches
                 (:location ev)
