@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [+ - *])
   (:require [ubik.core :as u]
             [ubik.geometry :as geo]
-            [ubik.interactive.core :as spray]
+            [ubik.interactive.core :as spray :include-macros true]
             [ubik.lang :as lang :refer [* + -]]
             [ubik.math :as math]))
 
