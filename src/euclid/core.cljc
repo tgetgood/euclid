@@ -9,11 +9,13 @@
 
 (defonce host (hosts/default-host {}))
 
+(def db @handlers/app-db)
+
 ;;;;; Subs
 
 (def shapes
   (spray/subscription
-   (:shapes @spray/db)))
+   (:shapes @db)))
 
 (def control
   (spray/subscription
@@ -21,7 +23,7 @@
 
 (def draw-mode
   (spray/subscription
-   (:draw-mode @spray/db)))
+   (:draw-mode @db)))
 
 ;;;;; UI
 
@@ -92,7 +94,7 @@
 
 (def current-draw
   (spray/subscription
-   (let [current (:current-drag @spray/db)]
+   (let [current (:current-drag @db)]
      (when (and (not (:complete? current)) (handlers/valid-drag? current))
        (handlers/create-shape @draw-mode current)))))
 

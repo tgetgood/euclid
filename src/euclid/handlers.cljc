@@ -91,6 +91,21 @@
 ;;;;; Handlers
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(def app-db
+  "Aggregate state of the application."
+  ;; Having a single reduced value for the application state isn't necessary,
+  ;; but it gives us the benefits of re-frame or the Elm arch.
+  (atom (spray/stateful-process {:shapes [(assoc u/circle :radius 400)]} {})))
+
+(defn db-handler
+  ;; I've decided here to split the definition of the app-db process into pieces
+  ;; to make it feel more like re-frame. This isn't necessary, and I don't know
+  ;; as of yet whether it's a good thing or not.
+  [k m]
+  (swap! app-db spray/add-method k (fn [db e]
+                                 (let [db' (m db e)]
+                                   (spray/emit db' db')))))
+
 (def control-tags #{:euclid.core/circle-button :euclid.core/rule-button
                     :euclid.core/pan})
 
@@ -191,7 +206,7 @@
       (first tags))))
 
 (def click-registrar
-  (spray/db-handler ::click
+  (spray/db-handler click-processor
     (fn [db ev]
       (let [bs (geo/effected-branches
                 (:location ev)
