@@ -151,7 +151,7 @@
                     (spray/emit {} {:complete? true :start start :end ev}))})
 
 (def drag
-  (spray/tprocess all-drags (comp (filter valid-drag?) (filter :complete?))))
+  (spray/tprocess #'all-drags (comp (filter valid-drag?) (filter :complete?))))
 
 (defn create-shape [mode {{l1 :location} :start {l2 :location} :end}]
   (case mode
@@ -192,13 +192,11 @@
         (spray/emit db' {}))))
   )
 
-(def potential-clicks
-  (spray/stateful-process
-   {:left-mouse-down (fn [{:keys [down]} ev]
-                       {:down ev})
-    :left-mouse-up   (fn [{:keys [down]} ev]
-                       (when down
-                         (spray/emit {} {:down down :up ev})))}))
+(spray/defprocess potential-clicks
+  [{:keys [down]} ev]
+  {:left-mouse-down {:down ev}
+   :left-mouse-up   (when down
+                      (spray/emit {} {:down down :up ev}))})
 
 (def click-processor
   (spray/tprocess #'potential-clicks
