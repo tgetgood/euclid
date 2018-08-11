@@ -4,6 +4,7 @@
             [ubik.hosts :as hosts]
             [ubik.interactive.core :as spray :include-macros true]
             [ubik.math :as math]
+            [ubik.interactive.process :as process]
             [ubik.interactive.rt :as rt]))
 
 #?(:cljs (enable-console-print!))
@@ -25,6 +26,7 @@
 (def draw-mode
   (spray/subscription
    (:draw-mode @db)))
+
 
 ;;;;; UI
 
@@ -95,8 +97,9 @@
 
 (def current-draw
   (spray/subscription
-   (let [current (:current-drag @db)]
-     (when (and (not (:complete? current))
+   (let [current @handlers/all-drags]
+     (when (and @draw-mode
+                (not (:complete? current))
                 (handlers/valid-drag? current))
        (handlers/create-shape @draw-mode current)))))
 
@@ -125,11 +128,6 @@
     :ins []
     :outs []
     :render-root world}))
-
-
-(defn reset []
-  (ubik.interactive.db/reset-db! :ubik.interactive.db/uninitialised)
-  (start-game))
 
 (defn ^:export init []
   (start-game))

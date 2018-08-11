@@ -3,7 +3,7 @@
   (:require [ubik.core :as u]
             [ubik.geometry :as geo]
             [ubik.interactive.core :as spray :include-macros true]
-            [ubik.interactive.process :as process]
+            [ubik.interactive.process :as process :include-macros true]
             [ubik.lang :as lang :refer [* + -]]
             [ubik.math :as math]))
 
@@ -104,15 +104,19 @@
 (defn app-db []
   (spray/stateful-process init-db init-db @db-handlers))
 
+(defn wrap-db-handler [f]
+  (fn [db e]
+    (let [db' (f db e)]
+      (when-not (identical? db db')
+        (spray/emit db' db')))))
+
 (defn reg-db-handler!
   ;; I've decided here to split the definition of the app-db process into pieces
   ;; to make it feel more like re-frame. This isn't necessary, and I don't know
   ;; as of yet whether it's a good thing or not.
   {:style/indent [1]}
-  [k m]
-  (swap! db-handlers assoc k (fn [db e]
-                               (let [db' (m db e)]
-                                   (spray/emit db' db')))))
+  [k f]
+  (swap! db-handlers assoc k (wrap-db-handler f)))
 
 (def control-tags #{:euclid.core/circle-button :euclid.core/rule-button
                     :euclid.core/pan})
@@ -141,17 +145,35 @@
   (and start end (< 20 (lang/length (- end start)))))
 
 (spray/defprocess all-drags
-  [{:keys [start]} ev]
-  {:left-mouse-down {:start ev}
-   :mouse-move      (when start
-                      (spray/emit {} {:complete? false :start start :end ev}))
-
-   :mouse-out     (spray/emit {} ::dropped)
-   :left-mouse-up (when start
-                    (spray/emit {} {:complete? true :start start :end ev}))})
+  [{:keys [start] :as state} ev]
+  {:mouse-down {:start ev}
+   :mouse-move (when start
+                 (spray/emit state {:complete? false :start start :end ev}))
+   :mouse-out  (when start
+                 (spray/emit {} ::dropped))
+   :mouse-up   (when start
+                 (spray/emit {} {:complete? true :start start :end ev}))})
 
 (def drag
   (spray/tprocess #'all-drags (comp (filter valid-drag?) (filter :complete?))))
+
+(spray/defprocess snap-drag
+  [db ev]
+  {#'drag
+   (let [controls (detect-control-points (:shapes db))]
+     (println controls)
+     (if (empty? controls)
+       (spray/emit db ev)
+       (let [start       (:location (:start ev))
+             end         (:location (:end ev))
+             [sd pstart] (first
+                          (sort (map (fn [c] [(math/dist start c) c]) controls)))
+             [ed pend]   (first
+                          (sort (map (fn [c] [(math/dist end c) c]) controls)))
+             d           (cond-> ev
+                           (< sd 20) (assoc-in [:start :location] pstart)
+                           (< ed 20) (assoc-in [:end :location] pend))]
+         (spray/emit db d))))})
 
 (defn create-shape [mode {{l1 :location} :start {l2 :location} :end}]
   (case mode
@@ -167,35 +189,14 @@
     (update db :shapes conj (create-shape draw-mode drag))
     db))
 
-(spray/defprocess snap-drag
-  [db ev]
-  {#'drag
-   (let [controls (detect-control-points (:shapes db))]
-     (if (empty? controls)
-       (spray/emit db ev)
-       (let [start       (:location (:start ev))
-             end         (:location (:end ev))
-             [sd pstart] (first
-                          (sort (map (fn [c] [(math/dist start c) c]) controls)))
-             [ed pend]   (first
-                          (sort (map (fn [c] [(math/dist end c) c]) controls)))
-             d           (cond-> ev
-                           (< sd 20) (assoc-in [:start :location] pstart)
-                           (< ed 20) (assoc-in [:end :location] pend))]
-         (spray/emit db d))))})
-
 (reg-db-handler! #'snap-drag
   (fn [db ev]
-    (let [db' (maybe-add-shape db ev)]
-      (if (= db db')
-        db
-        (spray/emit db' {}))))
-  )
+    (maybe-add-shape db ev)))
 
 (spray/defprocess potential-clicks
   [{:keys [down]} ev]
-  {:left-mouse-down {:down ev}
-   :left-mouse-up   (when down
+  {:mouse-down {:down ev}
+   :mouse-up   (when down
                       (spray/emit {} {:down down :up ev}))})
 
 (def click-processor
@@ -215,7 +216,7 @@
   (fn [db ev]
     (let [bs (geo/effected-branches
               (:location ev)
-              (:ubik.interactive.events/world ev))
+              (::spray/render-tree ev))
           clicked-tag (control-click bs)]
       (if clicked-tag
         (assoc db :draw-mode clicked-tag)
