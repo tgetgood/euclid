@@ -169,7 +169,6 @@
    :mouse-up   (when down
                  (spray/emit {} {:down down :up ev}))})
 
-
 (def click-processor
   (spray/process
    {potential-clicks (comp (filter valid-click?) (map unify-click))}))
@@ -187,15 +186,15 @@
 ;;;;; App DB
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(declare undo-store)
+(declare undo-manager)
 
 (def init-db
   {:shapes []})
 
 (m/defdb app-db init-db
   [db ev]
-  {undo-store      ev
-   snap-drag       (maybe-add-shape db ev)
+  {undo-manager    (do (println "undo!") ev)
+   snap-drag       (do (println "snapdrag") (maybe-add-shape db ev))
    click-processor (let [bs          (geo/effected-branches
                                       (:location ev)
                                       (::spray/render-tree ev))
@@ -233,13 +232,63 @@
 (def redo
   (spray/process {keypress (filter #(= "C-r" (:key %)))}))
 
-(m/defundo undo-store
-  [states ev]
-  {snap-drag (let [db @app-db]
-               (if (identical? db (nth (:queue states) (:index states)))
-                 states
-                 (-> states
-                     (update :index inc)
-                     (update :queue conj db))))
-   undo (let [current (:index states)]
-          )})
+(defn add-to-queue [{:keys [queue index max-revisions] :as state} snapshot]
+  (cond
+    (= index max-revisions)
+    (assoc state :queue (conj (into [] (rest queue)) snapshot))
+
+    (not= (inc index) (count queue))
+    (-> state
+        (update :index inc)
+        (assoc :queue (conj (into [] (take (inc index) queue)) snapshot)))
+
+    :else
+    (-> state
+        (update :index inc)
+        (update :queue conj snapshot))))
+
+(defn push-undo [save-fn {:keys [queue index max-revisions] :as state} db]
+  (let [snapshot (save-fn db)]
+    (cond
+      (empty? queue) (assoc state :queue [snapshot] :index 0)
+
+      (= snapshot (nth queue index)) state
+
+      :else (add-to-queue state snapshot))))
+
+(defn- undo* [save-fn restore-fn {:keys [queue index]} db]
+  #_(if (< 0 index)
+    (let [prev (nth queue index)]
+      (if (= prev (save-fn db))
+        (let [i--  (dec index)
+              prev (nth queue i--)]
+          (-> db
+              (update undo assoc :index i--)
+              (assoc app (restore-fn db prev))))
+        (-> db
+            (assoc undo (push-current-snap db save-fn))
+            (update app restore-fn prev))))
+    db))
+
+(defn- redo* [restore-fn {:keys [queue index]}]
+  #_(let [i++                   (inc index)]
+    (if (< i++ (count queue))
+      (let [next (nth queue i++)]
+        (-> db
+            (assoc app (restore-fn (get db app) next))
+            (update undo assoc :index i++)))
+      db)))
+
+(defn- restore-fn
+  [db snapshot]
+  (assoc db :shapes snapshot))
+
+(defn- save-fn
+  [db]
+  (:shapes db))
+
+(m/defundo undo-manager
+  [state ev]
+  {snap-drag (push-undo save-fn state @app-db)
+   undo      (undo* save-fn restore-fn state @app-db)
+   redo      (redo* restore-fn state)})

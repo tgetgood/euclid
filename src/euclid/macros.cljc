@@ -40,7 +40,7 @@
               rf-map)))
 
   (defmacro defundo [n bindings rf-map]
-    `(defreload ~n {}
+    `(defreload ~n {:queue [] :index 0 :max-revisions 50}
        ~(into {} (map (fn [[k v]]
                         `[~(maybe-var k) (fn ~bindings ~v)]))
               rf-map))))
