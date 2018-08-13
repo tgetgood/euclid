@@ -228,19 +228,18 @@
                               :key (emit-key k state)})))})
 
 (def undo
-  (spray/tprocess ::keypress (filter #(= "C-z" (:key %)))))
+  (spray/process {keypress (filter #(= "C-z" (:key %)))}))
 
 (def redo
-  (spray/tprocess ::keypress (filter #(= "C-r" (:key %)))))
+  (spray/process {keypress (filter #(= "C-r" (:key %)))}))
 
-(def handlers
-  [] #_[click-detector
-   click-processor
-   click-registrar
-   keypress
-   undo
-   redo
-   drag-follow
-   drag-filter
-   snap-to-controls
-   drag-detector])
+(m/defundo undo-store
+  [states ev]
+  {snap-drag (let [db @app-db]
+               (if (identical? db (nth (:queue states) (:index states)))
+                 states
+                 (-> states
+                     (update :index inc)
+                     (update :queue conj db))))
+   undo (let [current (:index states)]
+          )})
