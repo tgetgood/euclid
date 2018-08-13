@@ -8,6 +8,7 @@
 
   :dependencies [#_[macroexpanse/ubik "0.4.0"]
                  [org.clojure/clojure "1.9.0"]
+                 [net.cgrand/macrovich "0.2.1"]
                  [org.clojure/core.async "0.3.465"]
                  [org.clojure/clojurescript "1.9.946"]]
 
@@ -53,7 +54,6 @@
                           [org.clojure/tools.namespace "0.2.11"]
                           [com.clojure-goes-fast/clj-memory-meter "0.1.0"]
                           [criterium "0.4.4"]
-                          [net.cgrand/macrovich "0.2.1"]
                           [quil "2.6.0" :exclusions [[org.clojure/clojure]]]]
           ;; need to add dev source path here to get user.clj loaded
           :source-paths  ["src" "dev" "../ubik/src"]

@@ -5,7 +5,8 @@
             [ubik.interactive.core :as spray :include-macros true]
             [ubik.interactive.process :as process :include-macros true]
             [ubik.lang :as lang :refer [* + -]]
-            [ubik.math :as math]))
+            [ubik.math :as math]
+            [euclid.macros :as m :include-macros true]))
 
 ;;;;; Intersections
 
@@ -92,32 +93,6 @@
 ;;;;; Handlers
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(def init-db
-  {:shapes []})
-
-(defonce db-handlers
-  ^{:doc "Aggregate state of the application."}
-  ;; Having a single reduced value for the application state isn't necessary,
-  ;; but it gives us the benefits of re-frame or the Elm arch.
-  (atom {}))
-
-(defn app-db []
-  (spray/stateful-process init-db init-db @db-handlers))
-
-(defn wrap-db-handler [f]
-  (fn [db e]
-    (let [db' (f db e)]
-      (when-not (identical? db db')
-        (spray/emit db' db')))))
-
-(defn reg-db-handler!
-  ;; I've decided here to split the definition of the app-db process into pieces
-  ;; to make it feel more like re-frame. This isn't necessary, and I don't know
-  ;; as of yet whether it's a good thing or not.
-  {:style/indent [1]}
-  [k f]
-  (swap! db-handlers assoc k (wrap-db-handler f)))
-
 (def control-tags #{:euclid.core/circle-button :euclid.core/rule-button
                     :euclid.core/pan})
 
@@ -155,13 +130,12 @@
                  (spray/emit {} {:complete? true :start start :end ev}))})
 
 (def drag
-  (spray/tprocess #'all-drags (comp (filter valid-drag?) (filter :complete?))))
+  (spray/process {all-drags (comp (filter valid-drag?) (filter :complete?))}))
 
 (spray/defprocess snap-drag
   [db ev]
-  {#'drag
+  {drag
    (let [controls (detect-control-points (:shapes db))]
-     (println controls)
      (if (empty? controls)
        (spray/emit db ev)
        (let [start       (:location (:start ev))
@@ -189,19 +163,16 @@
     (update db :shapes conj (create-shape draw-mode drag))
     db))
 
-(reg-db-handler! #'snap-drag
-  (fn [db ev]
-    (maybe-add-shape db ev)))
-
 (spray/defprocess potential-clicks
   [{:keys [down]} ev]
   {:mouse-down {:down ev}
    :mouse-up   (when down
-                      (spray/emit {} {:down down :up ev}))})
+                 (spray/emit {} {:down down :up ev}))})
+
 
 (def click-processor
-  (spray/tprocess #'potential-clicks
-    (comp (filter valid-click?) (map unify-click))))
+  (spray/process
+   {potential-clicks (comp (filter valid-click?) (map unify-click))}))
 
 (defn control-click
   "Returns the unique button contained in shape. If shape contains more than one
@@ -212,15 +183,30 @@
     (when (= 1 (count tags))
       (first tags))))
 
-(reg-db-handler! #'click-processor
-  (fn [db ev]
-    (let [bs (geo/effected-branches
-              (:location ev)
-              (::spray/render-tree ev))
-          clicked-tag (control-click bs)]
-      (if clicked-tag
-        (assoc db :draw-mode clicked-tag)
-        db))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;; App DB
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(declare undo-store)
+
+(def init-db
+  {:shapes []})
+
+(m/defdb app-db init-db
+  [db ev]
+  {undo-store      ev
+   snap-drag       (maybe-add-shape db ev)
+   click-processor (let [bs          (geo/effected-branches
+                                      (:location ev)
+                                      (::spray/render-tree ev))
+                         clicked-tag (control-click bs)]
+                     (if clicked-tag
+                       (assoc db :draw-mode clicked-tag)
+                       db))})
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;; Undo
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn emit-key [k {:keys [alt control]}]
   (let [c (if control "C-" "")

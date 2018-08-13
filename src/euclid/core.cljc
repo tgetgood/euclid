@@ -11,13 +11,11 @@
 
 (defonce host (hosts/default-host {}))
 
-(def db (handlers/app-db))
-
 ;;;;; Subs
 
 (def shapes
   (spray/subscription
-   (:shapes @db)))
+   (:shapes @handlers/app-db)))
 
 (def control
   (spray/subscription
@@ -25,8 +23,7 @@
 
 (def draw-mode
   (spray/subscription
-   (:draw-mode @db)))
-
+   (:draw-mode @handlers/app-db)))
 
 ;;;;; UI
 
