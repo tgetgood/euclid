@@ -5,8 +5,7 @@
             [ubik.interactive.core :as spray :include-macros true]
             [ubik.interactive.process :as process :include-macros true]
             [ubik.lang :as lang :refer [* + -]]
-            [ubik.math :as math]
-            [euclid.macros :as m :include-macros true]))
+            [ubik.math :as math]))
 
 ;;;;; Intersections
 
@@ -191,9 +190,19 @@
 (def init-db
   {:shapes []})
 
-(m/defdb app-db init-db
+(defn wrap-db-handler [f]
+   (fn [db e]
+     (let [db' (f db e)]
+       (when-not (identical? db db')
+         (spray/emit db' db')))))
+
+
+(spray/defprocess app-db
+  "Single source of truth for the UI. Acts like the reduced app-db in
+  re-frame."
+  {:init-state init-db :reloaded? true :wrap-body wrap-db-handler}
   [db ev]
-  {undo-manager    ev
+  {undo-manager ev
    snap-drag       (maybe-add-shape db ev)
    click-processor (let [bs          (geo/effected-branches
                                       (:location ev)
@@ -280,7 +289,8 @@
   [db]
   (:shapes db))
 
-(m/defundo undo-manager
+(spray/defprocess undo-manager
+  {:init-state {:max 50 :undo '() :redo '()} :reloaded? true}
   [state ev]
   {app-db (push-state save-fn state @app-db)
    undo   (undo* save-fn restore-fn state @app-db)

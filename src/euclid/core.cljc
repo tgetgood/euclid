@@ -108,22 +108,10 @@
     (or @current-draw [])
     (map #(assoc point :centre %) @control)]))
 
-#_(def undo-plugin
-  (spray/undo-plugin
-   {:events {:undo ::handlers/undo
-             :redo ::handlers/redo
-             :checkpoint ::handlers/checkpoint}
-    :save-fn (fn [db] (:shapes db))
-    :restore-fn (fn [db snapshot] (assoc db :shapes snapshot))
-    :max-undo 50}))
-
 (defn start-game []
   (spray/initialise!
    {:host host
-    ;; TODO: These effect handlers should be built in. I'm not exactly sure how
-    ;; best to build them in though. I guess merge in default handlers.
-    :ins []
-    :outs []
+    :effect-roots []
     :render-root world}))
 
 (defn ^:export init []
