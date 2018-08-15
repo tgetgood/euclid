@@ -193,8 +193,8 @@
 
 (m/defdb app-db init-db
   [db ev]
-  {undo-manager    (do (println "undo!") ev)
-   snap-drag       (do (println "snapdrag") (maybe-add-shape db ev))
+  {undo-manager    ev
+   snap-drag       (maybe-add-shape db ev)
    click-processor (let [bs          (geo/effected-branches
                                       (:location ev)
                                       (::spray/render-tree ev))
@@ -255,7 +255,6 @@
           s' (if (= (peek undo) snapshot)
                (assoc state :undo (pop undo) :redo (conj redo snapshot))
                (assoc state :redo (conj redo snapshot)))]
-      (println (= (peek undo) snapshot))
       (spray/emit s' (restore-fn (peek (:undo s')) db)))))
 
 (defn- redo* [restore-fn {:keys [redo undo] :as state} db]
@@ -283,6 +282,6 @@
 
 (m/defundo undo-manager
   [state ev]
-  {;app-db (push-state save-fn state @app-db)
+  {app-db (push-state save-fn state @app-db)
    undo   (undo* save-fn restore-fn state @app-db)
    redo   (redo* restore-fn state @app-db)})
