@@ -224,7 +224,7 @@
                  "Alt"     (assoc state  :alt false)
                  (spray/emit state
                              {:time (:time ev)
-                              :key (emit-key k state)})))})
+                              :key  (emit-key k state)})))})
 
 (def undo
   (spray/process {keypress (filter #(= "C-z" (:key %)))}))
@@ -247,40 +247,34 @@
         (update :index inc)
         (update :queue conj snapshot))))
 
-(defn push-undo [save-fn {:keys [queue index max-revisions] :as state} db]
+
+(defn- undo* [save-fn restore-fn {:keys [undo redo] :as state} db]
+  (if (empty? undo)
+    state
+    (let [snapshot (save-fn db)
+          s' (if (= (peek undo) snapshot)
+               (assoc state :undo (pop undo) :redo (conj redo snapshot))
+               (assoc state :redo (conj redo snapshot)))]
+      (println (= (peek undo) snapshot))
+      (spray/emit s' (restore-fn (peek (:undo s')) db)))))
+
+(defn- redo* [restore-fn {:keys [redo undo] :as state} db]
+  (when-let [next (peek redo)]
+    (spray/emit (assoc state :undo (conj undo next) :redo (pop redo))
+                (restore-fn next db))))
+
+(defn restrict [n s]
+  (if (< (count s) n)
+    s
+    (into (empty s) (take n s))))
+
+(defn push-state [save-fn {:keys [undo redo max] :as state} db]
   (let [snapshot (save-fn db)]
-    (cond
-      (empty? queue) (assoc state :queue [snapshot] :index 0)
-
-      (= snapshot (nth queue index)) state
-
-      :else (add-to-queue state snapshot))))
-
-(defn- undo* [save-fn restore-fn {:keys [queue index]} db]
-  #_(if (< 0 index)
-    (let [prev (nth queue index)]
-      (if (= prev (save-fn db))
-        (let [i--  (dec index)
-              prev (nth queue i--)]
-          (-> db
-              (update undo assoc :index i--)
-              (assoc app (restore-fn db prev))))
-        (-> db
-            (assoc undo (push-current-snap db save-fn))
-            (update app restore-fn prev))))
-    db))
-
-(defn- redo* [restore-fn {:keys [queue index]}]
-  #_(let [i++                   (inc index)]
-    (if (< i++ (count queue))
-      (let [next (nth queue i++)]
-        (-> db
-            (assoc app (restore-fn (get db app) next))
-            (update undo assoc :index i++)))
-      db)))
+    (when-not (identical? snapshot (peek undo))
+      (assoc state :undo (restrict max (conj undo snapshot)) :redo '()))))
 
 (defn- restore-fn
-  [db snapshot]
+  [snapshot db]
   (assoc db :shapes snapshot))
 
 (defn- save-fn
@@ -289,6 +283,6 @@
 
 (m/defundo undo-manager
   [state ev]
-  {snap-drag (push-undo save-fn state @app-db)
-   undo      (undo* save-fn restore-fn state @app-db)
-   redo      (redo* restore-fn state)})
+  {;app-db (push-state save-fn state @app-db)
+   undo   (undo* save-fn restore-fn state @app-db)
+   redo   (redo* restore-fn state @app-db)})
