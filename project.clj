@@ -52,6 +52,7 @@
                           [org.clojure/spec.alpha "0.1.134"]
                           [org.clojure/test.check "0.9.0"]
                           [org.clojure/tools.namespace "0.2.11"]
+                          [com.taoensso/timbre "4.10.0"]
                           [com.clojure-goes-fast/clj-memory-meter "0.1.0"]
                           [criterium "0.4.4"]
                           [quil "2.6.0" :exclusions [[org.clojure/clojure]]]]
