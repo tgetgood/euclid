@@ -100,13 +100,20 @@
                 (handlers/valid-drag? current))
        (handlers/create-shape @draw-mode current)))))
 
+(def canvas
+  (spray/subscription
+   [(or @shapes [])
+    (map #(assoc point :centre %) @control)]))
+
+(def window
+  (handlers/window canvas))
+
 (def world
   (spray/subscription
    [(u/translate (u/translate @control-panel [0 100])
                  [0 500])
-    (or @shapes [])
     (or @current-draw [])
-    (map #(assoc point :centre %) @control)]))
+    @window]))
 
 (defn start-game []
   (spray/initialise!

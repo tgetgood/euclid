@@ -5,6 +5,7 @@
             [ubik.interactive.core :as spray :include-macros true]
             [ubik.interactive.process :as process :include-macros true]
             [ubik.lang :as lang :refer [* + -]]
+            [ubik.math :as math]
             [ubik.math :as math]))
 
 ;;;;; Intersections
@@ -193,7 +194,7 @@
 (defn wrap-db-handler [f]
    (fn [db e]
      (let [db' (f db e)]
-       (when-not (identical? db db')
+       (when-not (or (nil? db') (identical? db db'))
          (spray/emit db' db')))))
 
 
@@ -295,3 +296,45 @@
   {app-db (push-state save-fn state @app-db)
    undo   (undo* save-fn restore-fn state @app-db)
    redo   (redo* restore-fn state @app-db)})
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;; Infinite Canvas
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn normalise-zoom [dz]
+  (let [scale 100]
+    (math/exp (/ (- dz) scale))))
+
+(defn zoom-c [dz origin centre]
+  (let [dz (normalise-zoom dz)]
+    (+ (* dz origin) (* (- 1 dz) centre))))
+
+(defn update-zoom [{:keys [zoom offset] :as w} centre dz]
+  {:zoom (max -8000 (min 8000 (+ zoom dz)))
+   :offset (zoom-c dz offset centre)})
+
+(defn update-offset [w delta]
+  (update w :offset - delta))
+
+(spray/defprocess window-drag
+  [start ev]
+  {all-drags (when (= :euclid.core/pan (:draw-mode @app-db))
+               (if (or (keyword? ev) (:complete? ev))
+                 false
+                 (let [start (or start (:location (:start ev)))
+                       end   (:location (:end ev))]
+                   (spray/emit end (- start end)))))})
+
+(spray/defprocess windower
+  {:init-state {:zoom 1 :offset [0 0]} :reloaded? true :wrap-body wrap-db-handler}
+  [state ev]
+  {:wheel      (let [{:keys [location dy]} ev]
+                 (update-zoom state location dy))
+   window-drag (update-offset state ev)})
+
+(defn window [shape]
+  (spray/subscription
+   (let [{:keys [zoom offset]} @windower]
+     (-> @shape
+         (u/scale (normalise-zoom zoom))
+         (u/translate offset)))))
