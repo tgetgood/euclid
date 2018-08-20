@@ -293,7 +293,7 @@
 (spray/defprocess undo-manager
   {:init-state {:max 50 :undo '() :redo '()} :reloaded? true}
   [state ev]
-  {app-db (push-state save-fn state @app-db)
+  {app-db (push-state save-fn state ev)
    undo   (undo* save-fn restore-fn state @app-db)
    redo   (redo* restore-fn state @app-db)})
 
