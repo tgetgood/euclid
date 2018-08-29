@@ -217,7 +217,7 @@
 ;;; And somehow we're going to make canvas both undoable and windowed.
 
 (def canvas
-  (spray/wire {:drag window-drags} (undoer canvas*)))
+  (window/infinite-canvas {:drag window/drag} canvas*))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; App DB

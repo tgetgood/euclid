@@ -1,4 +1,6 @@
-(ns euclid.window)
+(ns euclid.window
+  (:require [ubik.core :as u]
+            [ubik.interactive.core :as spray]))
 
 (defn normalise-zoom [dz]
   (let [scale 100]
@@ -41,19 +43,26 @@
                      (u/translation (- offset)))
                     loc)))
 
-(def windowed-drag
-  (spray/transducer
-   {:init-state @window}
-   [{:keys [zoom offset] :as win} ev]
-   {:window ev
-    :drag   (when (and zoom offset)
-              (spray/emit win (-> ev
-                                  (update-in [:start :location] txp win)
-                                  (update-in [:end :location] txp win))))}))
+(def drag
+  ^{:state true}
+  {:window (fn [_ ev] ev)
+   :drag   (fn [{:keys [zoom offset] :as win} ev]
+             (when (and zoom offset)
+               (spray/emit win (-> ev
+                                   (update-in [:start :location] txp win)
+                                   (update-in [:end :location] txp win)))))})
 
-(defn window [shape]
-  (spray/subscription
-   (let [{:keys [zoom offset]} @windower]
-     (-> @shape
-         (u/scale (normalise-zoom zoom))
-         (u/translate offset)))))
+(defn windowed-inputs [m]
+  (into {} (map (fn [[k v]] [k (spray/wire {:window window} v)])) m))
+
+(def window-atx
+  ^{:state true}
+  {:window (fn [_ ev] ev)
+   :shape  (fn [{:keys [zoom offset] :as win} ev]
+             (spray/emit win (-> ev
+                                 (u/scale (normalise-zoom zoom))
+                                 (u/translate offset))))})
+(defn infinite-canvas [m t]
+  (spray/wire {:shape  (spray/wire (windowed-inputs m) t)
+               :window window}
+              window-atx))
