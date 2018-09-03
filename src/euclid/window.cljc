@@ -1,6 +1,6 @@
 (ns euclid.window
-  (:require [ubik.core :as u]
-            [ubik.interactive.core :as spray]))
+  (:require [lemonade.core :as l]
+            [ubik.core :as spray]))
 
 (defn normalise-zoom [dz]
   (let [scale 100]
@@ -39,8 +39,8 @@
 (defn txp [loc {:keys [zoom offset]}]
   (let [z (/ 1 (normalise-zoom zoom))]
     (math/apply-atx (math/comp-atx
-                     (u/scaling [z z])
-                     (u/translation (- offset)))
+                     (l/scaling [z z])
+                     (l/translation (- offset)))
                     loc)))
 
 (def drag
@@ -60,8 +60,8 @@
   {:window (fn [_ ev] ev)
    :shape  (fn [{:keys [zoom offset] :as win} ev]
              (spray/emit win (-> ev
-                                 (u/scale (normalise-zoom zoom))
-                                 (u/translate offset))))})
+                                 (l/scale (normalise-zoom zoom))
+                                 (l/translate offset))))})
 (defn infinite-canvas [m t]
   (spray/wire {:shape  (spray/wire (windowed-inputs m) t)
                :window window}

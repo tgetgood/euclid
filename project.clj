@@ -15,14 +15,14 @@
   :plugins [[lein-figwheel "0.5.16"]
             [lein-cljsbuild "1.1.7" :exclusions [org.clojure/clojure]]]
 
-  :source-paths ["src" "dev" "../ubik/src"]
+  :source-paths ["src" "dev" "../ubik/src" "../lemonade/src"]
 
   :main euclid.core
 
   :cljsbuild
   {:builds
    [{:id           "dev"
-     :source-paths ["src" "../ubik/src"]
+     :source-paths ["src" "../ubik/src" "../lemonade/src"]
 
      :figwheel     {:on-jsload "euclid.core/on-reload"}
 
@@ -57,7 +57,7 @@
                           [criterium "0.4.4"]
                           [quil "2.6.0" :exclusions [[org.clojure/clojure]]]]
           ;; need to add dev source path here to get user.clj loaded
-          :source-paths  ["src" "dev" "../ubik/src"]
+          :source-paths  ["src" "dev" "../ubik/src" "../lemonade/src"]
 
           :repl-options  {:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}
           ;; need to add the compliled assets to the :clean-targets

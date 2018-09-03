@@ -1,11 +1,11 @@
 (ns euclid.core
   (:require [euclid.handlers :as handlers]
-            [ubik.core :as u]
-            [ubik.hosts :as hosts]
-            [ubik.interactive.core :as spray :include-macros true]
-            [ubik.math :as math]
-            [ubik.interactive.process :as process]
-            [ubik.interactive.rt :as rt]))
+            [lemonade.core :as l]
+            [lemonade.hosts :as hosts]
+            [ubik.core :as spray :include-macros true]
+            [lemonade.math :as math]
+            [ubik.process :as process]
+            [ubik.rt :as rt]))
 
 #?(:cljs (enable-console-print!))
 
@@ -30,24 +30,24 @@
 (def hud [])
 
 (defn text [t & [c]]
-  (cond-> (u/scale (assoc u/text :text t) 2)
-    c (u/translate c)))
+  (cond-> (l/scale (assoc l/text :text t) 2)
+    c (l/translate c)))
 
 (def point
-  (assoc u/circle
+  (assoc l/circle
          :radius 10
          :style {:fill    :#fdd017
                  :opacity 0.5
                  :stroke  :none}))
 
 (def button-bg
-  (-> u/rectangle
-      (u/style {:fill :none :stroke :black})
-       (u/scale 100)))
+  (-> l/rectangle
+      (l/style {:fill :none :stroke :black})
+       (l/scale 100)))
 
 (def circle-button
-  (u/tag [button-bg
-          (assoc u/annulus :style {:stroke :none :fill :black}
+  (l/tag [button-bg
+          (assoc l/annulus :style {:stroke :none :fill :black}
                  :outer-radius 35
                  :inner-radius 33
                  :centre [50 50])]
@@ -55,33 +55,33 @@
 
 (def rule-button
   (-> [button-bg
-       (-> u/rectangle
+       (-> l/rectangle
            (assoc :width (* 80 (math/sqrt 2)) :height 2)
-           (u/style {:fill :black :stroke :none})
-           (u/translate [10 9])
-           (u/rotate [10 10] 45))
+           (l/style {:fill :black :stroke :none})
+           (l/translate [10 9])
+           (l/rotate [10 10] 45))
        (assoc point :centre [10 10] :radius 5)
        (assoc point :centre [90 90] :radius 5)]
-      (u/tag ::rule-button)))
+      (l/tag ::rule-button)))
 
 (def selected
-  (assoc u/rectangle :width 100 :height 100
+  (assoc l/rectangle :width 100 :height 100
          :style {:fill :green :opacity 0.3}))
 
 (def control-panel
   (spray/subscription
    [circle-button
-    (-> [(-> (assoc u/text :text "pan")
-             (u/scale 3)
-             (u/translate [20 40]))
+    (-> [(-> (assoc l/text :text "pan")
+             (l/scale 3)
+             (l/translate [20 40]))
          button-bg]
-        (u/translate [0 200])
-        (u/tag ::pan))
-    (u/translate rule-button [0 100])
+        (l/translate [0 200])
+        (l/tag ::pan))
+    (l/translate rule-button [0 100])
     (condp = @draw-mode
       ::circle-button selected
       ::rule-button   (assoc selected :corner [0 100])
-      ::pan (u/translate selected [0 200])
+      ::pan (l/translate selected [0 200])
       [])]))
 
 (def problem-1
@@ -89,8 +89,8 @@
     "Draw an equilateral triangle with the given line segment as its base."
     [0 300])
 
-   (u/with-style {:stroke :magenta}
-     (assoc u/line :from [150 0] :to [400 0]))])
+   (l/with-style {:stroke :magenta}
+     (assoc l/line :from [150 0] :to [400 0]))])
 
 (def current-draw
   (spray/subscription
@@ -110,7 +110,7 @@
 
 (def world
   (spray/subscription
-   [(u/translate (u/translate @control-panel [0 100])
+   [(l/translate (l/translate @control-panel [0 100])
                  [0 500])
     (or @current-draw [])
     @window]))

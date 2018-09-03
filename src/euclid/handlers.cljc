@@ -1,12 +1,11 @@
 (ns euclid.handlers
   (:refer-clojure :exclude [+ - *])
-  (:require [ubik.core :as u]
-            [ubik.geometry :as geo]
-            [ubik.interactive.core :as spray :include-macros true]
-            [ubik.interactive.process :as process :include-macros true]
-            [ubik.lang :as lang :refer [* + -]]
-            [ubik.math :as math]
-            [ubik.math :as math]))
+  (:require [lemonade.core :as l]
+            [lemonade.geometry :as geo]
+            [ubik.core :as spray :include-macros true]
+            [ubik.process :as process :include-macros true]
+            [lemonade.lang :as lang :refer [* + -]]
+            [lemonade.math :as math]))
 
 ;;;;; Intersections
 
@@ -20,7 +19,7 @@
 (defn circle-circle-intersection [{c1 :centre r1 :radius}
                                   {c2 :centre r2 :radius}]
   (let [s  (- c1 c2)
-        l2 (u/dot s s)
+        l2 (l/dot s s)
         l  (math/sqrt l2)]
     (if (< (+ r1 r2) l)
       []
@@ -36,10 +35,10 @@
         [i1 i2]))))
 
 (defn line-line-intersection [l m]
-  (let [[px py] (u/base-vector l)
-        [qx qy :as q] (u/base-vector m)
-        [xp yp] (u/origin l)
-        [xq yq :as q0] (u/origin m)
+  (let [[px py] (l/base-vector l)
+        [qx qy :as q] (l/base-vector m)
+        [xp yp] (l/origin l)
+        [xq yq :as q0] (l/origin m)
         ;; FIXME: The math to get this isn't terribly nice, but this equation is
         ;; just awful...
         s (/ (- (* px (- yq yp)) (* py (- xq xp))) (- (* qx py) (* qy px)))]
@@ -49,9 +48,9 @@
           [intersect])))))
 
 (defn closest-point [c l]
-  (let [u (u/unit l)
-        t (u/dot (- c (u/origin l)) u)]
-    (+ (* t u) (u/origin l))))
+  (let [u (l/unit l)
+        t (l/dot (- c (l/origin l)) u)]
+    (+ (* t u) (l/origin l))))
 
 (defn line-circle-intersection [{[x1 y1] :from [x2 y2] :to :as l}
                                 {[cx cy :as c] :centre r :radius}]
@@ -61,7 +60,7 @@
       [p]
       (when (< cd r)
         (let [d (math/sqrt (- (* r r) (* cd cd)))
-              u (u/unit l)
+              u (l/unit l)
               du (* d u)]
           (filter #(geo/contains? l %) [(+ p du) (- p du)]))))))
 
@@ -86,7 +85,7 @@
     (into
      #{}
      (concat
-      (mapcat (fn [s] (when (u/segment? s) (u/endpoints s))) shapes)
+      (mapcat (fn [s] (when (l/segment? s) (l/endpoints s))) shapes)
       (mapcat intersection-points (pairs shapes))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -98,7 +97,7 @@
 
 ;;;;; Key controls
 
-(spray/defprocess ctrl?
+(spray/deft ctrl?
   [ev]
   {:key-down (when (= "Control" (:key ev))
                (spray/emit true))
@@ -124,7 +123,7 @@
          :time t2
          :location [(quot (+ x1 x2) 2) (quot (+ y1 y2) 2)]))
 
-(spray/defprocess potential-clicks
+(spray/deft potential-clicks
   [{:keys [down]} ev]
   {:mouse-down {:down ev}
    :mouse-up   (when down
@@ -141,7 +140,7 @@
   (let [shapes (geo/effected-branches
                 (:location ev)
                 (::spray/render-tree ev))
-        tags   (filter (partial contains? control-tags) (u/get-all-tags shape))]
+        tags   (filter (partial contains? control-tags) (l/get-all-tags shape))]
     (when (= 1 (count tags))
       (first tags))))
 
@@ -161,7 +160,7 @@
   [{{start :location} :start {end :location} :end}]
   (and start end (< 20 (lang/length (- end start)))))
 
-(spray/defprocess all-drags
+(spray/deft all-drags
   [{:keys [start] :as state} ev]
   {:mouse-down {:start ev}
    :mouse-move (when start
@@ -174,7 +173,7 @@
 (def drag
   (spray/process {all-drags (comp (filter valid-drag?) (filter :complete?))}))
 
-#_(spray/defprocess snap-drag
+#_(spray/deft snap-drag
   [db ev]
   {drag
    (let [controls (detect-control-points (:shapes db))]
@@ -193,8 +192,8 @@
 
 (defn create-shape [mode {{l1 :location} :start {l2 :location} :end}]
   (case mode
-    :euclid.core/rule-button (assoc u/line :from l1 :to l2)
-    :euclid.core/circle-button (assoc u/circle
+    :euclid.core/rule-button (assoc l/line :from l1 :to l2)
+    :euclid.core/circle-button (assoc l/circle
                                       :centre l1
                                       :radius (math/norm (map - l1 l2)))
     ;; REVIEW: Don't error on bad shape, just return no shape
@@ -235,7 +234,7 @@
          (spray/emit db' db')))))
 
 
-(spray/defprocess app-db
+(spray/deft app-db
   "Single source of truth for the UI. Acts like the reduced app-db in
   re-frame."
   {:init-state init-db :reloaded? true :wrap-body wrap-db-handler}
