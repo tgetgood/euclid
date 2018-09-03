@@ -1,11 +1,11 @@
 (ns euclid.handlers
   (:refer-clojure :exclude [+ - *])
-  (:require [lemonade.core :as l]
+  (:require [euclid.window :as window]
+            [lemonade.core :as l]
             [lemonade.geometry :as geo]
-            [ubik.core :as spray :include-macros true]
-            [ubik.process :as process :include-macros true]
             [lemonade.lang :as lang :refer [* + -]]
-            [lemonade.math :as math]))
+            [lemonade.math :as math]
+            [ubik.core :as spray :include-macros true]))
 
 ;;;;; Intersections
 
@@ -140,7 +140,7 @@
   (let [shapes (geo/effected-branches
                 (:location ev)
                 (::spray/render-tree ev))
-        tags   (filter (partial contains? control-tags) (l/get-all-tags shape))]
+        tags   (filter (partial contains? control-tags) (l/get-all-tags shapes))]
     (when (= 1 (count tags))
       (first tags))))
 
@@ -171,7 +171,7 @@
                  (spray/emit {} {:complete? true :start start :end ev}))})
 
 (def drag
-  (spray/process {all-drags (comp (filter valid-drag?) (filter :complete?))}))
+  {:possible-drag (comp (filter valid-drag?) (filter :complete?))})
 
 #_(spray/deft snap-drag
   [db ev]
@@ -199,14 +199,14 @@
     ;; REVIEW: Don't error on bad shape, just return no shape
     nil))
 
-(defn maybe-add-shape [{:keys draw-mode :as db} drag]
+(defn maybe-add-shape [{:keys [draw-mode] :as db} drag]
   (when-let [s (create-shape draw-mode drag)]
     (update db :shapes conj s)))
 
 (def canvas-t
   {:draw-mode (fn [s ev] (assoc s :draw-mode ev))
    :drag (fn [{:keys [draw-mode shapes] :as state} ev]
-           (when-let [shape (create-shape s ev)]
+           (when-let [shape (create-shape state ev)]
              (let [shapes (conj shapes shape)]
                (spray/emit (assoc state :shapes shapes) shapes))))})
 

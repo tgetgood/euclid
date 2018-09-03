@@ -1,5 +1,6 @@
 (ns euclid.window
   (:require [lemonade.core :as l]
+            [lemonade.math :as math]
             [ubik.core :as spray]))
 
 (defn normalise-zoom [dz]
@@ -17,11 +18,11 @@
 (defn update-offset [w delta]
   (update w :offset - delta))
 
-(spray/defprocess window-drag
-  [start ev]
-  {ctrl? nil
-   all-drags (when (or (= :euclid.core/pan (:draw-mode @app-db))
-                       @ctrl?)
+(spray/deft window-drag
+  [{:keys [start ctrl?] :as state} ev]
+  ;; FIXME: Horrible kludge.
+  {:ctrl? (assoc state :ctrl? ev)
+   :all-drags (when ctrl?
                (if (or (keyword? ev) (:complete? ev))
                  false
                  (let [start (or start (:location (:start ev)))
@@ -29,12 +30,18 @@
                    (when (and start end)
                      (spray/emit end (- start end))))))})
 
-(spray/defprocess window
-  {:init-state {:zoom 1 :offset [0 0]} :reloaded? true :wrap-body wrap-db-handler}
+(defn emit-state [f]
+  (fn [db e]
+    (let [db' (f db e)]
+      (when-not (or (nil? db') (identical? db db'))
+        (spray/emit db' db')))))
+
+(spray/deft window
+  {:init-state {:zoom 1 :offset [0 0]} :reloaded? true :wrap-body emit-state}
   [state ev]
-  {:wheel      (let [{:keys [location dy]} ev]
-                 (update-zoom state location dy))
-   window-drag (update-offset state ev)})
+  {:wheel (let [{:keys [location dy]} ev]
+            (update-zoom state location dy))
+   :drag  (update-offset state ev)})
 
 (defn txp [loc {:keys [zoom offset]}]
   (let [z (/ 1 (normalise-zoom zoom))]

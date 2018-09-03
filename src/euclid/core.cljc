@@ -102,18 +102,17 @@
 
 (def canvas
   (spray/subscription
-   [(or @shapes [])
+   [(or @handlers/canvas [])
     (map #(assoc point :centre %) @control)]))
 
-(def window
-  (handlers/window canvas))
 
 (def world
   (spray/subscription
    [(l/translate (l/translate @control-panel [0 100])
                  [0 500])
     (or @current-draw [])
-    @window]))
+    @canvas]))
+
 
 (defn start-game []
   (spray/initialise!
